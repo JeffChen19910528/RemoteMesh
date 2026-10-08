@@ -1,0 +1,13 @@
+# Build output
+bin/
+obj/
+artifacts/
+*.user
+.vs/
+TestResults/
+
+# Local AI-assistant files (not part of the project)
+CLAUDE.md
+Skill.md
+.claude/
+.claude_recovery/

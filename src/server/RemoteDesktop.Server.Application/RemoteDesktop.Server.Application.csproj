@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\RemoteDesktop.Core\RemoteDesktop.Core.csproj" />
+    <ProjectReference Include="..\..\RemoteDesktop.Protocol\RemoteDesktop.Protocol.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Server.Core\RemoteDesktop.Server.Core.csproj" />
+  </ItemGroup>
+
+</Project>

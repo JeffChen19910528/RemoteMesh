@@ -1,0 +1,39 @@
+[Unit]
+Description=RemoteMesh signaling and relay server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+User=remotemesh
+Group=remotemesh
+WorkingDirectory=/opt/remotemesh/server
+EnvironmentFile=/etc/remotemesh/server.env
+ExecStart=/usr/bin/dotnet /opt/remotemesh/server/RemoteDesktop.Server.Api.dll
+Restart=on-failure
+RestartSec=5
+# The server keeps all state in memory today: a restart drops live sessions, so do not restart it aggressively.
+TimeoutStopSec=30
+
+# Sandbox: the server needs the network and nothing else.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryDenyWriteExecute=false
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

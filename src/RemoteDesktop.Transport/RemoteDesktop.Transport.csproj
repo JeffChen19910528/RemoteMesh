@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\RemoteDesktop.Core\RemoteDesktop.Core.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Protocol\RemoteDesktop.Protocol.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Security\RemoteDesktop.Security.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

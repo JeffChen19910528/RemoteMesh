@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\RemoteDesktop.Core\RemoteDesktop.Core.csproj" />
+    <ProjectReference Include="..\..\RemoteDesktop.Protocol\RemoteDesktop.Protocol.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Server.Core\RemoteDesktop.Server.Core.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Server.Application\RemoteDesktop.Server.Application.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Server.Infrastructure\RemoteDesktop.Server.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

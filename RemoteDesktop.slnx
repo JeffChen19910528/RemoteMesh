@@ -1,0 +1,46 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RemoteDesktop.Agent/RemoteDesktop.Agent.csproj" />
+    <Project Path="src/RemoteDesktop.Capture/RemoteDesktop.Capture.csproj" />
+    <Project Path="src/RemoteDesktop.Clipboard/RemoteDesktop.Clipboard.csproj" />
+    <Project Path="src/RemoteDesktop.Core/RemoteDesktop.Core.csproj" />
+    <Project Path="src/RemoteDesktop.Encoding/RemoteDesktop.Encoding.csproj" />
+    <Project Path="src/RemoteDesktop.FileTransfer/RemoteDesktop.FileTransfer.csproj" />
+    <Project Path="src/RemoteDesktop.Input/RemoteDesktop.Input.csproj" />
+    <Project Path="src/RemoteDesktop.Nat/RemoteDesktop.Nat.csproj" />
+    <Project Path="src/RemoteDesktop.Protocol/RemoteDesktop.Protocol.csproj" />
+    <Project Path="src/RemoteDesktop.Relay/RemoteDesktop.Relay.csproj" />
+    <Project Path="src/RemoteDesktop.Security/RemoteDesktop.Security.csproj" />
+    <Project Path="src/RemoteDesktop.Signaling/RemoteDesktop.Signaling.csproj" />
+    <Project Path="src/RemoteDesktop.Streaming/RemoteDesktop.Streaming.csproj" />
+    <Project Path="src/RemoteDesktop.Transport/RemoteDesktop.Transport.csproj" />
+  </Folder>
+  <Folder Name="/src/server/">
+    <Project Path="src/server/RemoteDesktop.Server.Api/RemoteDesktop.Server.Api.csproj" />
+    <Project Path="src/server/RemoteDesktop.Server.Application/RemoteDesktop.Server.Application.csproj" />
+    <Project Path="src/server/RemoteDesktop.Server.Core/RemoteDesktop.Server.Core.csproj" />
+    <Project Path="src/server/RemoteDesktop.Server.Identity/RemoteDesktop.Server.Identity.csproj" />
+    <Project Path="src/server/RemoteDesktop.Server.Infrastructure/RemoteDesktop.Server.Infrastructure.csproj" />
+    <Project Path="src/server/RemoteDesktop.Server.Persistence/RemoteDesktop.Server.Persistence.csproj" />
+    <Project Path="src/server/RemoteDesktop.Server.Presence/RemoteDesktop.Server.Presence.csproj" />
+    <Project Path="src/server/RemoteDesktop.Server.Relay/RemoteDesktop.Server.Relay.csproj" />
+    <Project Path="src/server/RemoteDesktop.Server.Security/RemoteDesktop.Server.Security.csproj" />
+    <Project Path="src/server/RemoteDesktop.Server.Session/RemoteDesktop.Server.Session.csproj" />
+    <Project Path="src/server/RemoteDesktop.Server.Signaling/RemoteDesktop.Server.Signaling.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RemoteDesktop.Clipboard.Tests/RemoteDesktop.Clipboard.Tests.csproj" />
+    <Project Path="tests/RemoteDesktop.Core.Tests/RemoteDesktop.Core.Tests.csproj" />
+    <Project Path="tests/RemoteDesktop.FileTransfer.Tests/RemoteDesktop.FileTransfer.Tests.csproj" />
+    <Project Path="tests/RemoteDesktop.Input.Tests/RemoteDesktop.Input.Tests.csproj" />
+    <Project Path="tests/RemoteDesktop.Integration.Tests/RemoteDesktop.Integration.Tests.csproj" />
+    <Project Path="tests/RemoteDesktop.Nat.Tests/RemoteDesktop.Nat.Tests.csproj" />
+    <Project Path="tests/RemoteDesktop.Performance.Tests/RemoteDesktop.Performance.Tests.csproj" />
+    <Project Path="tests/RemoteDesktop.Protocol.Tests/RemoteDesktop.Protocol.Tests.csproj" />
+    <Project Path="tests/RemoteDesktop.Security.Tests/RemoteDesktop.Security.Tests.csproj" />
+    <Project Path="tests/RemoteDesktop.Signaling.Tests/RemoteDesktop.Signaling.Tests.csproj" />
+    <Project Path="tests/RemoteDesktop.Server.Application.Tests/RemoteDesktop.Server.Application.Tests.csproj" />
+    <Project Path="tests/RemoteDesktop.Streaming.Tests/RemoteDesktop.Streaming.Tests.csproj" />
+    <Project Path="tests/RemoteDesktop.Transport.Tests/RemoteDesktop.Transport.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Systemd" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RemoteDesktop.Server.Core\RemoteDesktop.Server.Core.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Server.Signaling\RemoteDesktop.Server.Signaling.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Server.Identity\RemoteDesktop.Server.Identity.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Server.Session\RemoteDesktop.Server.Session.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Server.Presence\RemoteDesktop.Server.Presence.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Server.Relay\RemoteDesktop.Server.Relay.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Server.Persistence\RemoteDesktop.Server.Persistence.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Server.Security\RemoteDesktop.Server.Security.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Server.Infrastructure\RemoteDesktop.Server.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\RemoteDesktop.Core\RemoteDesktop.Core.csproj" />
+    <ProjectReference Include="..\..\RemoteDesktop.Protocol\RemoteDesktop.Protocol.csproj" />
+  </ItemGroup>
+
+</Project>

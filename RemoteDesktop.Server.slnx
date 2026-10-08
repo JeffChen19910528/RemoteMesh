@@ -1,0 +1,20 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RemoteDesktop.Core/RemoteDesktop.Core.csproj" />
+    <Project Path="src/RemoteDesktop.Protocol/RemoteDesktop.Protocol.csproj" />
+    <Project Path="src/RemoteDesktop.Security/RemoteDesktop.Security.csproj" />
+  </Folder>
+  <Folder Name="/src/server/">
+    <Project Path="src/server/RemoteDesktop.Server.Api/RemoteDesktop.Server.Api.csproj" />
+    <Project Path="src/server/RemoteDesktop.Server.Application/RemoteDesktop.Server.Application.csproj" />
+    <Project Path="src/server/RemoteDesktop.Server.Core/RemoteDesktop.Server.Core.csproj" />
+    <Project Path="src/server/RemoteDesktop.Server.Identity/RemoteDesktop.Server.Identity.csproj" />
+    <Project Path="src/server/RemoteDesktop.Server.Infrastructure/RemoteDesktop.Server.Infrastructure.csproj" />
+    <Project Path="src/server/RemoteDesktop.Server.Persistence/RemoteDesktop.Server.Persistence.csproj" />
+    <Project Path="src/server/RemoteDesktop.Server.Presence/RemoteDesktop.Server.Presence.csproj" />
+    <Project Path="src/server/RemoteDesktop.Server.Relay/RemoteDesktop.Server.Relay.csproj" />
+    <Project Path="src/server/RemoteDesktop.Server.Security/RemoteDesktop.Server.Security.csproj" />
+    <Project Path="src/server/RemoteDesktop.Server.Session/RemoteDesktop.Server.Session.csproj" />
+    <Project Path="src/server/RemoteDesktop.Server.Signaling/RemoteDesktop.Server.Signaling.csproj" />
+  </Folder>
+</Solution>

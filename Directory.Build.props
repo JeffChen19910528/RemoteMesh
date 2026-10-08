@@ -1,0 +1,11 @@
+<Project>
+
+  <PropertyGroup>
+    <Version>0.1.0</Version>
+    <Company>RemoteMesh</Company>
+    <Product>RemoteMesh</Product>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+</Project>
