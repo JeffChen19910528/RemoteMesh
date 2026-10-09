@@ -225,6 +225,46 @@ public sealed class MainViewModelTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task BlockingADevice_AsksFirst_EndsItsSession_ListsItAndCanBeUndone()
+    {
+        var (host, hostShell) = NewModel("host");
+        var (viewer, viewerShell) = NewModel("viewer");
+        hostShell.Decide = _ => new ApprovalDecision(true, Permission.ViewScreen);
+        await host.StartAsync();
+        await viewer.StartAsync();
+        viewer.RemoteId = host.MyId;
+        await viewer.ConnectAsync();
+        var session = Assert.Single(viewerShell.Viewers);
+        await Eventually(() => host.BeingControlled.Count == 1, "host lists the viewer");
+        var item = host.BeingControlled.Single();
+        Assert.False(host.HasBlockedPeers);
+
+        hostShell.ConfirmAnswer = false;
+        await host.BlockAsync(item);                                    // "no": nothing happens
+        Assert.False(host.HasBlockedPeers);
+        Assert.False(session.Completion.IsCompleted);
+
+        hostShell.ConfirmAnswer = true;
+        await host.BlockAsync(item);
+        await Eventually(() => session.Completion.IsCompleted, "the blocked device's session ends");
+        await Eventually(() => host.BeingControlled.Count == 0, "and leaves the list");
+        Assert.True(host.HasBlockedPeers);
+        var blocked = Assert.Single(host.BlockedPeers);
+        Assert.Contains(viewer.MyId.Replace(" ", ""), blocked.Who.Replace(" ", ""));   // known by the number people know it by
+
+        viewer.RemoteId = host.MyId;
+        await viewer.ConnectAsync();
+        Assert.Single(hostShell.Asked);                                  // the second try never reached a person
+        Assert.Single(viewerShell.Viewers);                              // and no new viewer opened
+
+        await host.UnblockAsync(blocked);
+        Assert.False(host.HasBlockedPeers);
+        viewer.RemoteId = host.MyId;
+        await viewer.ConnectAsync();
+        Assert.Equal(2, viewerShell.Viewers.Count);                      // asked about again, like anyone else
+    }
+
+    [Fact]
     public async Task ChangingTheKey_AsksFirst_ThenDoesItAndKeepsWorking()
     {
         var (vm, shell) = NewModel("pc");

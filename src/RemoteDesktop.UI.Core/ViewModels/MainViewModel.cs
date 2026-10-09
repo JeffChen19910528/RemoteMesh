@@ -38,6 +38,14 @@ public sealed class BeingControlledItem(HostSession session) : ObservableObject
     private static string Short(DeviceId id) => id.ToString()[..8] + "…";
 }
 
+/// <summary>A device this computer refuses to be controlled by.</summary>
+public sealed class BlockedPeerItem(BlockedPeer peer)
+{
+    public DeviceId Device { get; } = peer.Device;
+    public string Who => peer.ShortId is { } shortId ? $"裝置 {ShortId.Format(shortId)}" : peer.Device.ToString()[..8] + "…";
+    public string Since => peer.Since.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+}
+
 public sealed class MainViewModel : ObservableObject, IAsyncDisposable
 {
     private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(5);
@@ -80,6 +88,8 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         SettingsCommand = new RelayCommand(_ => OpenSettingsAsync(null));
         RotateKeyCommand = new RelayCommand(_ => RotateKeyAsync(), _ => _online && !_connecting && BeingControlled.Count == 0);
         DisconnectCommand = new RelayCommand(p => DisconnectAsync(p as BeingControlledItem), p => p is BeingControlledItem);
+        BlockCommand = new RelayCommand(p => BlockAsync(p as BeingControlledItem), p => p is BeingControlledItem);
+        UnblockCommand = new RelayCommand(p => UnblockAsync(p as BlockedPeerItem), p => p is BlockedPeerItem);
         VerifyCommand = new RelayCommand(p => { (p as BeingControlledItem)?.Verify(); Refresh(); }, p => p is BeingControlledItem { CanVerify: true });
         // Toolkits without an automatic re-query (Avalonia) only ask again when told: tell them whenever the answer can change.
         BeingControlled.CollectionChanged += (_, _) => Refresh();
@@ -87,6 +97,35 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
 
     public ObservableCollection<BeingControlledItem> BeingControlled { get; } = new();
     public ICommand VerifyCommand { get; }
+    public ICommand BlockCommand { get; }
+    public ICommand UnblockCommand { get; }
+
+    /// <summary>The devices that cannot control this computer (kept on disk).</summary>
+    public ObservableCollection<BlockedPeerItem> BlockedPeers { get; } = new();
+    public bool HasBlockedPeers => BlockedPeers.Count > 0;
+
+    private void RefreshBlocked()
+    {
+        BlockedPeers.Clear();
+        if (_client is not null)
+            foreach (var peer in _client.BlockedPeers) BlockedPeers.Add(new BlockedPeerItem(peer));
+        Raise(nameof(HasBlockedPeers));
+    }
+
+    /// <summary>Ends this device's session and refuses it from now on, until the person lifts the block.</summary>
+    public async Task BlockAsync(BeingControlledItem? item)
+    {
+        if (item is null || _client is null) return;
+        if (!await _shell.ConfirmAsync("要封鎖這個裝置嗎?\n\n它的連線會立刻結束,之後它再怎麼要求(即使是信任裝置或一次性密碼)也會被直接拒絕,不會再問你。可以在「已封鎖的裝置」解除。")) return;
+        await _client.BlockPeerAsync(item.Session.PeerDeviceId, item.Session.PeerShortId);
+        RefreshBlocked();
+    }
+
+    public Task UnblockAsync(BlockedPeerItem? item)
+    {
+        if (item is not null && _client?.UnblockPeer(item.Device) == true) RefreshBlocked();
+        return Task.CompletedTask;
+    }
 
     public ICommand ConnectCommand { get; }
     public ICommand NewCodeCommand { get; }
@@ -202,6 +241,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
                 await client.StartAsync(ct);
                 _client = client;
                 MyId = ShortId.Format(client.ShortId);
+                RefreshBlocked();
                 MyDeviceId = client.DeviceId.ToString();
                 Status = "已連線,可以接受遠端連線";
                 IsOnline = true;

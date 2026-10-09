@@ -22,6 +22,7 @@ public sealed class RemoteMeshClient : IAsyncDisposable
     private readonly ConcurrentDictionary<SessionId, SessionBase> _sessions = new();
     private readonly ConcurrentDictionary<SessionId, (DeviceId Id, string? ShortId)> _requesters = new();
     private PeerPinStore _pins = new();
+    private PeerBlockList _blocked = new();
     private IKeyStore? _keyStore;
     private int _approvalsOpen;
     private int _signalingGeneration; // bumped each time the link to the server was lost and came back
@@ -63,7 +64,9 @@ public sealed class RemoteMeshClient : IAsyncDisposable
         var identityService = new DeviceIdentityService(keyStore, _options.DataDirectory);
         _identity = await identityService.LoadOrCreateAsync(_options.DeviceName, ct);
         _keys = await keyStore.LoadOrCreateAsync(_identity.DeviceId, ct);
-        _pins = new PeerPinStore(Path.Combine(_options.DataDirectory ?? DeviceIdentityService.GetDefaultDirectory(), "known-peers.json"));
+        var dataDirectory = _options.DataDirectory ?? DeviceIdentityService.GetDefaultDirectory();
+        _pins = new PeerPinStore(Path.Combine(dataDirectory, "known-peers.json"));
+        _blocked = new PeerBlockList(Path.Combine(dataDirectory, "blocked-peers.json"));
 
         // Resuming sessions after a reconnect is done here, together with rebuilding their connections.
         _signaling.ResumeSessionsAfterReconnect = false;
@@ -202,7 +205,8 @@ public sealed class RemoteMeshClient : IAsyncDisposable
         try
         {
             var decision = ApprovalDecision.Deny; // secure default: no handler, no access
-            if (_approval is not null)
+            // A blocked device is not even asked about: the person already said no, for good.
+            if (_approval is not null && !_blocked.IsBlocked(request.RequesterDeviceId))
             {
                 try { decision = await _approval.DecideAsync(new ApprovalRequest(request.SessionId, request.RequesterDeviceId, request.RequesterShortId), withdrawn.Token); }
                 catch (OperationCanceledException) { return; } // withdrawn or shutting down: nothing to answer
@@ -241,6 +245,16 @@ public sealed class RemoteMeshClient : IAsyncDisposable
         var granted = (Permission)auth.GrantedPermissions;
         var endpoint = await OpenEndpointAsync(sessionId, auth.SessionToken, initiator: false, _cts.Token);
 
+        // The server may have let this device in without asking (a trusted device, a one-time code). Blocking is
+        // decided here, on this computer, and overrules both.
+        if (_blocked.IsBlocked(endpoint.PeerDeviceId))
+        {
+            try { await _signaling.CloseSessionAsync(sessionId, "blocked", CancellationToken.None); } catch (Exception) { }
+            await endpoint.DisposeAsync();
+            _requesters.TryRemove(sessionId, out _);
+            return;
+        }
+
         DeviceId? peer = null;
         string? peerShort = null;
         if (_requesters.TryRemove(sessionId, out var requester)) (peer, peerShort) = (requester.Id, requester.ShortId);
@@ -269,6 +283,27 @@ public sealed class RemoteMeshClient : IAsyncDisposable
     /// example it was reinstalled). The next connection pins the key it presents then.
     /// </summary>
     public bool ForgetPeer(DeviceId peer) => _pins.Forget(peer);
+
+    // ── Devices this computer refuses ────────────────────────────────────
+
+    /// <summary>The devices that cannot control this computer.</summary>
+    public IReadOnlyList<BlockedPeer> BlockedPeers => _blocked.List();
+
+    /// <summary>
+    /// Refuses this device from now on and ends any session it has with this computer. Survives restarts. The device
+    /// is declined without a prompt, even if the server vouches for it or it knows a one-time code.
+    /// </summary>
+    public async Task BlockPeerAsync(DeviceId peer, string? shortId = null)
+    {
+        _blocked.Block(peer, shortId);
+        foreach (var session in _sessions.Values.OfType<HostSession>().Where(s => s.PeerDeviceId == peer).ToList())
+            await session.DisposeAsync();
+    }
+
+    /// <summary>Lets the device ask again (it is still asked about like anyone else).</summary>
+    public bool UnblockPeer(DeviceId peer) => _blocked.Unblock(peer);
+
+    public bool IsBlocked(DeviceId peer) => _blocked.IsBlocked(peer);
 
     // ── Changing this device's key ───────────────────────────────────────
 

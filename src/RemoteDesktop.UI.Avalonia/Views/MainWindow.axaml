@@ -3,7 +3,7 @@
         x:Class="RemoteDesktop.UI.Avalonia.Views.MainWindow"
         Title="RemoteMesh" Width="520" Height="680" MinWidth="480" MinHeight="600"
         WindowStartupLocation="CenterScreen" FontSize="14">
-  <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,*,Auto">
+  <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
 
     <!-- This computer -->
     <Border Grid.Row="0" Classes="card">
@@ -51,6 +51,9 @@
             <Button DockPanel.Dock="Right" Content="已核對" Margin="8,0,0,0"
                     Command="{Binding $parent[ListBox].DataContext.VerifyCommand}" CommandParameter="{Binding}"
                     AutomationProperties.Name="已核對安全碼"/>
+            <Button DockPanel.Dock="Right" Content="封鎖" Margin="8,0,0,0"
+                    Command="{Binding $parent[ListBox].DataContext.BlockCommand}" CommandParameter="{Binding}"
+                    AutomationProperties.Name="封鎖這個裝置"/>
             <Button DockPanel.Dock="Right" Content="中斷" Margin="8,0,0,0"
                     Command="{Binding $parent[ListBox].DataContext.DisconnectCommand}" CommandParameter="{Binding}"/>
             <StackPanel>
@@ -65,8 +68,25 @@
       </ListBox.ItemTemplate>
     </ListBox>
 
+    <!-- Devices that were blocked -->
+    <StackPanel Grid.Row="4" Margin="0,12,0,0" IsVisible="{Binding HasBlockedPeers}">
+      <TextBlock Classes="section" Text="已封鎖的裝置"/>
+      <ItemsControl ItemsSource="{Binding BlockedPeers}" AutomationProperties.Name="已封鎖的裝置">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <DockPanel Margin="0,2">
+              <Button DockPanel.Dock="Right" Content="解除封鎖" Margin="8,0,0,0"
+                      Command="{Binding $parent[ItemsControl].DataContext.UnblockCommand}" CommandParameter="{Binding}"/>
+              <TextBlock VerticalAlignment="Center" Text="{Binding Who}"/>
+              <TextBlock VerticalAlignment="Center" Classes="hint" Margin="8,0,0,0" Text="{Binding Since}"/>
+            </DockPanel>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+
     <!-- Status -->
-    <DockPanel Grid.Row="4" Margin="0,12,0,0">
+    <DockPanel Grid.Row="5" Margin="0,12,0,0">
       <Button DockPanel.Dock="Right" Margin="8,0,0,0" Content="設定" Command="{Binding SettingsCommand}"/>
       <Button DockPanel.Dock="Right" Margin="8,0,0,0" Content="更換金鑰" Command="{Binding RotateKeyCommand}" AutomationProperties.Name="更換金鑰"/>
       <TextBlock Text="{Binding Status}" Foreground="#6B7280" VerticalAlignment="Center" TextWrapping="Wrap"/>
