@@ -1,4 +1,5 @@
 using RemoteDesktop.Core;
+using RemoteDesktop.Protocol;
 using RemoteDesktop.Protocol.Dtos;
 using RemoteDesktop.Server.Core;
 
@@ -13,6 +14,7 @@ public sealed class SessionNegotiationService(
     SessionSupport support,
     IConnectionTracker connections,
     IDeviceRegistry devices,
+    IShortIdDirectory shortIds,
     ISessionManager sessions,
     ITrustedDeviceStore trustedDevices,
     IOtpService otp,
@@ -43,6 +45,7 @@ public sealed class SessionNegotiationService(
             session.Permissions.Grant(permissions);
             await sessions.UpdateStateAsync(session.SessionId, SessionState.EstablishingTransport);
             session.State = SessionState.EstablishingTransport;
+            await sessions.SaveAsync(session.SessionId);
 
             var auth = support.IssueAuth(session, requesterId);
             await NotifyTargetEstablishedAsync(session, targetId);
@@ -66,6 +69,8 @@ public sealed class SessionNegotiationService(
         var pending = await sessions.CreateAsync(requesterId, targetId);
         await sessions.UpdateStateAsync(pending.SessionId, SessionState.Negotiating);
         pending.State = SessionState.Negotiating;
+        pending.RequesterShortId = await shortIds.GetAsync(requesterId);
+        await sessions.SaveAsync(pending.SessionId);
 
         var dto = SessionDto.From(pending);
         await notifier.NotifyAsync(targetId, "IncomingSessionRequest", dto);
@@ -129,6 +134,7 @@ public sealed class SessionNegotiationService(
         if (!await sessions.TryTransitionAsync(sessionId, SessionState.Authorizing, SessionState.EstablishingTransport))
             throw new SignalingException("Session is no longer pending.");
         session.State = SessionState.EstablishingTransport;
+        await sessions.SaveAsync(sessionId);
 
         // Each side gets a token bound to ITS OWN device; the relay pairs them by device role.
         var requesterAuth = support.IssueAuth(session, session.RequesterDeviceId);
@@ -172,7 +178,7 @@ public sealed class SessionNegotiationService(
     {
         var requesterId = support.RequireRegistered(caller);
 
-        if (!DeviceId.TryParse(targetDeviceIdStr ?? string.Empty, out var targetId) || targetId == requesterId)
+        if (await ParseTargetAsync(targetDeviceIdStr) is not { } targetId || targetId == requesterId)
             throw new SignalingException("Authentication failed.");
         if (string.IsNullOrWhiteSpace(code) || code.Length > 16 || !code.Trim().All(char.IsAsciiDigit))
             throw new SignalingException("Authentication failed.");
@@ -216,6 +222,7 @@ public sealed class SessionNegotiationService(
         session.Permissions.Grant(Permission.ViewOnly);
         await sessions.UpdateStateAsync(session.SessionId, SessionState.EstablishingTransport);
         session.State = SessionState.EstablishingTransport;
+        await sessions.SaveAsync(session.SessionId);
 
         var authResult = support.IssueAuth(session, requesterId);
         rateLimiter.Reset(rateLimitKey);
@@ -267,9 +274,20 @@ public sealed class SessionNegotiationService(
         if (rateLimiter.IsLockedOut(lookupKey, security.UnknownDeviceLookupsPer10Min, TenMinutes))
             throw new SignalingException("Too many failed lookups. Try again later.");
 
-        if (!DeviceId.TryParse(targetDeviceIdStr ?? string.Empty, out var targetId) || targetId == requesterId)
+        // The target may be written as a short ID (nine digits) or the full ID. Guessing short IDs is the cheap
+        // attack, so a lookup that finds nothing is counted and audited exactly like an unknown full ID.
+        var isShort = ShortId.TryNormalize(targetDeviceIdStr, out _);
+        if (await ParseTargetAsync(targetDeviceIdStr) is not { } targetId || targetId == requesterId)
         {
             rateLimiter.TryConsume(lookupKey, security.UnknownDeviceLookupsPer10Min, TenMinutes);
+            if (isShort)
+                await audit.WriteAsync(new AuditEvent
+                {
+                    ActorDeviceId = requesterId,
+                    EventType = AuditEventType.AuthenticationFailure,
+                    Success = false,
+                    Reason = "unknown-device-lookup"
+                });
             throw new SignalingException("Device is not available.");
         }
 
@@ -288,6 +306,13 @@ public sealed class SessionNegotiationService(
         if (!known || connections.GetConnectionId(targetId) is null)
             throw new SignalingException("Device is not available."); // same message: unknown vs offline is not observable
         return targetId;
+    }
+
+    /// <summary>A short ID is looked up; a full ID is parsed. Null when it is neither or nobody has that short ID.</summary>
+    private async Task<DeviceId?> ParseTargetAsync(string? text)
+    {
+        if (ShortId.TryNormalize(text, out var digits)) return await shortIds.ResolveAsync(digits);
+        return DeviceId.TryParse(text ?? string.Empty, out var id) ? id : null;
     }
 
     private async Task NotifyTargetEstablishedAsync(SessionInfo session, DeviceId targetId)

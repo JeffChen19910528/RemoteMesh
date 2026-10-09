@@ -11,11 +11,18 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Systemd" Version="10.0.12" />
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.12" />
+    <!-- The JPEG codec's native library for Linux, without a font-library dependency (a headless agent needs no fonts). -->
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.119.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="RemoteDesktop.Agent.Tests" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\RemoteDesktop.Core\RemoteDesktop.Core.csproj" />
     <ProjectReference Include="..\RemoteDesktop.Protocol\RemoteDesktop.Protocol.csproj" />
-    <ProjectReference Include="..\RemoteDesktop.Signaling\RemoteDesktop.Signaling.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Client\RemoteDesktop.Client.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Platform\RemoteDesktop.Platform.csproj" />
   </ItemGroup>
 </Project>

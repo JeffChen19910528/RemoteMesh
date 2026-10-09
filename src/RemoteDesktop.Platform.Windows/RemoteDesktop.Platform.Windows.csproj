@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Drawing.Common" Version="10.0.12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="RemoteDesktop.Platform.Windows.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RemoteDesktop.Core\RemoteDesktop.Core.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Capture\RemoteDesktop.Capture.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Encoding\RemoteDesktop.Encoding.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Input\RemoteDesktop.Input.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Clipboard\RemoteDesktop.Clipboard.csproj" />
+  </ItemGroup>
+
+</Project>

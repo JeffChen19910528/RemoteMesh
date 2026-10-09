@@ -15,10 +15,30 @@ services:
       # TLS ends at nginx; trust its forwarded address/scheme, and only from the compose network.
       RemoteMesh__ForwardedHeaders__Enabled: "true"
       RemoteMesh__ForwardedHeaders__KnownNetworks__0: "172.16.0.0/12"
+      # Devices, short IDs, trusted devices and the audit log live in PostgreSQL (see the db service below).
+      RemoteMesh__Database__ConnectionString: "Host=db;Database=remotemesh;Username=remotemesh;Password=${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in the environment or an .env file}"
       # Limits can be overridden here, e.g.:
       # RemoteMesh__Session__MaxTotalActiveSessions: "5000"
+    depends_on:
+      db: { condition: service_healthy }
     networks: [backend]
     expose: ["8080"]
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: remotemesh
+      POSTGRES_USER: remotemesh
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in the environment or an .env file}
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U remotemesh -d remotemesh"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [backend]   # not published: only the server can reach it
 
   proxy:
     image: nginx:stable
@@ -29,6 +49,9 @@ services:
       - ./nginx.docker.conf:/etc/nginx/conf.d/default.conf:ro
       - ./certs:/etc/ssl/remotemesh:ro
     networks: [backend]
+
+volumes:
+  dbdata: {}
 
 networks:
   backend: {}

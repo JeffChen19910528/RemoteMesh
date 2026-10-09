@@ -1,0 +1,75 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="RemoteDesktop.UI.Avalonia.Views.MainWindow"
+        Title="RemoteMesh" Width="520" Height="680" MinWidth="480" MinHeight="600"
+        WindowStartupLocation="CenterScreen" FontSize="14">
+  <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,*,Auto">
+
+    <!-- This computer -->
+    <Border Grid.Row="0" Classes="card">
+      <StackPanel>
+        <TextBlock Classes="section" Text="這台電腦"/>
+        <TextBlock Classes="hint" Text="我的 ID(把這串數字告訴要連線到這台電腦的人)"/>
+        <DockPanel Margin="0,4,0,10">
+          <Button DockPanel.Dock="Right" Margin="8,0,0,0" Content="複製" Command="{Binding CopyIdCommand}"/>
+          <TextBox Text="{Binding MyId, Mode=OneWay}" IsReadOnly="True" ToolTip.Tip="{Binding MyDeviceId}"
+                   FontFamily="Consolas,Menlo,DejaVu Sans Mono,monospace" FontSize="24" FontWeight="SemiBold" AutomationProperties.Name="我的 ID"/>
+        </DockPanel>
+        <TextBlock Classes="hint" Text="一次性密碼(對方輸入後可免核准連線,只能查看畫面,用過即失效)"/>
+        <DockPanel Margin="0,4,0,0">
+          <Button DockPanel.Dock="Right" Margin="8,0,0,0" Content="產生新密碼" Command="{Binding NewCodeCommand}"/>
+          <TextBox Text="{Binding Otp, Mode=OneWay}" IsReadOnly="True"
+                   FontFamily="Consolas,Menlo,DejaVu Sans Mono,monospace" FontSize="22" FontWeight="SemiBold" AutomationProperties.Name="一次性密碼"/>
+        </DockPanel>
+      </StackPanel>
+    </Border>
+
+    <!-- Remote computer -->
+    <Border Grid.Row="1" Classes="card">
+      <StackPanel>
+        <TextBlock Classes="section" Text="連線到另一台電腦"/>
+        <TextBlock Classes="hint" Text="對方的 ID(對方畫面上顯示的 9 位數字)"/>
+        <TextBox Text="{Binding RemoteId, Mode=TwoWay}" FontFamily="Consolas,Menlo,DejaVu Sans Mono,monospace" FontSize="18" Margin="0,4,0,10"
+                 AutomationProperties.Name="對方的 ID"/>
+        <TextBlock Classes="hint" Text="一次性密碼(選填;沒有的話,對方會收到核准要求)"/>
+        <TextBox Text="{Binding RemoteCode, Mode=TwoWay}" FontFamily="Consolas,Menlo,DejaVu Sans Mono,monospace"
+                 Margin="0,4,0,12" MaxLength="16" AutomationProperties.Name="對方的一次性密碼"/>
+        <StackPanel Orientation="Horizontal">
+          <Button Content="連線" Command="{Binding ConnectCommand}" IsDefault="True" Padding="26,6" Classes="primary" AutomationProperties.Name="連線"/>
+          <TextBlock Text="{Binding Error}" Foreground="#B91C1C" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="320"/>
+        </StackPanel>
+      </StackPanel>
+    </Border>
+
+    <!-- Who is connected to this computer -->
+    <TextBlock Grid.Row="2" Classes="section" Text="正在控制這台電腦的對象"/>
+    <ListBox Grid.Row="3" ItemsSource="{Binding BeingControlled}" BorderBrush="#E2E8F0" BorderThickness="1"
+             AutomationProperties.Name="正在控制這台電腦的對象">
+      <ListBox.ItemTemplate>
+        <DataTemplate>
+          <DockPanel Margin="4">
+            <Button DockPanel.Dock="Right" Content="已核對" Margin="8,0,0,0"
+                    Command="{Binding $parent[ListBox].DataContext.VerifyCommand}" CommandParameter="{Binding}"
+                    AutomationProperties.Name="已核對安全碼"/>
+            <Button DockPanel.Dock="Right" Content="中斷" Margin="8,0,0,0"
+                    Command="{Binding $parent[ListBox].DataContext.DisconnectCommand}" CommandParameter="{Binding}"/>
+            <StackPanel>
+              <TextBlock Text="{Binding Who}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+              <TextBlock Classes="hint" Text="{Binding Rights, StringFormat=權限:{0}}"/>
+              <TextBlock Classes="hint" Text="{Binding Since, StringFormat=開始時間:{0}}"/>
+              <TextBlock FontSize="12" TextWrapping="Wrap" Text="{Binding SecurityCode, StringFormat=安全碼:{0}}"/>
+              <TextBlock Classes="hint" Text="{Binding Trust}"/>
+            </StackPanel>
+          </DockPanel>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+
+    <!-- Status -->
+    <DockPanel Grid.Row="4" Margin="0,12,0,0">
+      <Button DockPanel.Dock="Right" Margin="8,0,0,0" Content="設定" Command="{Binding SettingsCommand}"/>
+      <Button DockPanel.Dock="Right" Margin="8,0,0,0" Content="更換金鑰" Command="{Binding RotateKeyCommand}" AutomationProperties.Name="更換金鑰"/>
+      <TextBlock Text="{Binding Status}" Foreground="#6B7280" VerticalAlignment="Center" TextWrapping="Wrap"/>
+    </DockPanel>
+  </Grid>
+</Window>

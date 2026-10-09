@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="RemoteDesktop.Platform.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RemoteDesktop.Client\RemoteDesktop.Client.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Platform.Windows\RemoteDesktop.Platform.Windows.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Platform.Linux\RemoteDesktop.Platform.Linux.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Platform.MacOS\RemoteDesktop.Platform.MacOS.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Platform.Skia\RemoteDesktop.Platform.Skia.csproj" />
+  </ItemGroup>
+
+</Project>

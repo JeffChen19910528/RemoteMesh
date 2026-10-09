@@ -62,7 +62,8 @@ public sealed class DeviceIdentityService
         };
     }
 
-    private static string GetDefaultDirectory()
+    /// <summary>Where identity files live when no folder is given.</summary>
+    public static string GetDefaultDirectory()
     {
         var root = OperatingSystem.IsWindows()
             ? Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)

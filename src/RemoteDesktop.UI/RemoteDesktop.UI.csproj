@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>RemoteMesh</AssemblyName>
+    <RootNamespace>RemoteDesktop.UI</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Product>RemoteMesh</Product>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="RemoteDesktop.UI.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RemoteDesktop.UI.Core\RemoteDesktop.UI.Core.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Client\RemoteDesktop.Client.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Platform\RemoteDesktop.Platform.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Platform.Windows\RemoteDesktop.Platform.Windows.csproj" />
+  </ItemGroup>
+
+</Project>

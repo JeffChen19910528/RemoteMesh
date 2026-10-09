@@ -92,11 +92,14 @@ public sealed class InMemoryRelayService : IRelayService
         }
 
         // A pairing that was shut down (peer left, session closed) is replaced, so a legitimate reconnect with a
-        // fresh token starts a clean relay instead of bouncing off the dead one.
+        // fresh token starts a clean relay instead of bouncing off the dead one. So is a pairing from an older key
+        // epoch: once the session was resumed, whatever still hangs on the old connection (a socket the server has not
+        // noticed is dead, or the peer that has not heard of the new epoch yet) must not block the new one.
         Pairing pairing;
         while (true)
         {
-            pairing = _pairings.GetOrAdd(sessionId, _ => new Pairing());
+            pairing = _pairings.GetOrAdd(sessionId, _ => new Pairing(session.Epoch));
+            if (pairing.Epoch < session.Epoch) pairing.Cancellation.Cancel();
             if (!pairing.Cancellation.IsCancellationRequested) break;
             _pairings.TryRemove(new KeyValuePair<SessionId, Pairing>(sessionId, pairing));
         }
@@ -236,6 +239,11 @@ public sealed class InMemoryRelayService : IRelayService
         private WebSocket? _requester;
         private WebSocket? _target;
         private readonly TaskCompletionSource _both = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Pairing(int epoch) => Epoch = epoch;
+
+        /// <summary>The session's key epoch this relay was set up for.</summary>
+        public int Epoch { get; }
 
         public CancellationTokenSource Cancellation { get; } = new();
 

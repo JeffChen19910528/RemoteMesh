@@ -95,6 +95,34 @@ public sealed class RelayServiceTests : IClassFixture<WebApplicationFactory<Prog
     }
 
     [Fact]
+    public async Task Relay_AfterAResume_TheNewEpoch_ReplacesWhatStillHangsOnTheOldOne()
+    {
+        var s = await NewSessionAsync(SessionState.Connected);
+        var sessions = _factory.Services.GetRequiredService<ISessionManager>();
+        var tokens = _factory.Services.GetRequiredService<ISessionTokenService>();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var oldA = await ConnectAsync(s.Id, s.Requester, s.RequesterToken, cts.Token);
+        var oldB = await ConnectAsync(s.Id, s.Target, s.TargetToken, cts.Token);
+
+        // The requester lost its connection but the server never saw the old socket die; it resumes (new epoch).
+        Assert.Equal(ResumeResult.Resumed, await sessions.TryResumeAsync(s.Id, DateTimeOffset.UtcNow, TimeSpan.FromMinutes(1)));
+
+        // Without the epoch the role is still taken by a socket that looks alive, and the legitimate one is refused.
+        var newA = await ConnectAsync(s.Id, s.Requester, tokens.Issue(s.Id, s.Requester), cts.Token);
+        var newB = await ConnectAsync(s.Id, s.Target, tokens.Issue(s.Id, s.Target), cts.Token);
+
+        var payload = new byte[] { 3, 1, 2, 3 };
+        await newA.SendAsync(payload, WebSocketMessageType.Binary, true, cts.Token);
+        var buf = new byte[64];
+        var got = await newB.ReceiveAsync(buf, cts.Token);
+        Assert.Equal(payload, buf[..got.Count]);
+
+        // The old pairing was ended, not left half alive.
+        var closed = await oldB.ReceiveAsync(new byte[64], cts.Token);
+        Assert.Equal(WebSocketMessageType.Close, closed.MessageType);
+    }
+
+    [Fact]
     public async Task Relay_InvalidToken_ClosesWithPolicyViolation()
     {
         var s = await NewSessionAsync();

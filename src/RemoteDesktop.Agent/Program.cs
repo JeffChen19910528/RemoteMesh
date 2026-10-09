@@ -6,6 +6,7 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddWindowsService(o => o.ServiceName = "RemoteMeshAgent");
 builder.Services.AddSystemd();
 
+builder.Services.Configure<AgentOptions>(builder.Configuration.GetSection(AgentOptions.SectionName));
 builder.Services.AddHostedService<AgentWorker>();
 
 var host = builder.Build();

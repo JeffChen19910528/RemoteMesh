@@ -14,10 +14,11 @@
 |---|---|---|---|
 | `BeginRegistration` | — | `string` base64 挑戰(32 B) | 取得綁定本連線的隨機挑戰;單次使用、30 秒有效 |
 | `RegisterDevice` | `DeviceInfoDto dto`, `string signatureBase64` | — | 以私鑰簽章證明身分(§1.3);首次註冊釘住公鑰 |
-| `RequestSession` | `string targetDeviceId` | `SessionDto` | 請求連線;信任設備路徑的 `Auth` 已填入 |
+| `ClaimShortId` | `string? preferred` | `string`(9 位數字) | 取得本設備的短 ID。已有就回傳原本的;否則 `preferred`(上次的號碼)若沒人持有就沿用;否則隨機配發。必須已註冊;10 次/分鐘 |
+| `RequestSession` | `string target` | `SessionDto` | `target` 可以是短 ID(9 位數字,可含空白或連字號)或完整 ID。請求連線;信任設備路徑的 `Auth` 已填入;傳給目標的 `SessionDto` 帶有 `RequesterShortId` |
 | `RespondToSession` | `string sessionId`, `bool accept`, `long grantedPermissions` | — | 僅目標可呼叫;權限只能含已定義位元 |
 | `GenerateOtp` | — | `string`(6 位數) | 目標顯示的一次性代碼 |
-| `RequestSessionWithOtp` | `string targetDeviceId`, `string otp` | `AuthResultDto` | 只授予檢視權限 |
+| `RequestSessionWithOtp` | `string target`(短 ID 或完整 ID), `string otp` | `AuthResultDto` | 只授予檢視權限 |
 | `AddTrustedDevice` | `string deviceId`, `string name`, `long defaultPermissions` | — | 權限不得含重啟/關機,不得信任自己 |
 | `RemoveTrustedDevice` | `string deviceId` | — | |
 | `GetTrustedDevices` | — | `List<TrustedDeviceDto>` | |
@@ -26,7 +27,7 @@
 | `RequestRelayToken` | `string sessionId` | `AuthResultDto` | 參與者取得新的單次使用 Relay token |
 | `Heartbeat` | — | — | 更新在線狀態 |
 | `CloseSession` | `string sessionId`, `string? reason`(≤ 256 字元) | — | 僅參與者;撤銷 token、關閉 Relay |
-| `ResumeSession` | `string sessionId`, `string token` | `SessionDto` | 以恢復 token 恢復 `Paused` 的 Session;回覆的 `Auth.SessionToken` 是下一個恢復 token,`Epoch` 加一 |
+| `ResumeSession` | `string sessionId`, `string token` | `SessionDto` | 以恢復 token 恢復 `Paused` 的 Session,或在只有 Relay 連線斷了時恢復仍是 `Connected` 的 Session;回覆的 `Auth.SessionToken` 是下一個恢復 token,`Epoch` 加一,並以 `SessionStateChanged`(`Connected`,新的 `Epoch`)通知對方。兩端收到新紀元後各自用 `RequestRelayToken` 取得新的 Relay token,以該紀元導出的金鑰重建 Relay 連線 |
 
 未完成註冊的連線呼叫上述任何方法(`BeginRegistration`、`RegisterDevice`、`Heartbeat` 除外)都會被拒絕。
 

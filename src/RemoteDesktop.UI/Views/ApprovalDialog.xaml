@@ -1,0 +1,25 @@
+<Window x:Class="RemoteDesktop.UI.Views.ApprovalDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="有人想連線到這台電腦" Width="460" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen" Topmost="True" ShowInTaskbar="True"
+        FontFamily="Segoe UI, Microsoft JhengHei UI" FontSize="14">
+    <StackPanel Margin="22">
+        <TextBlock Text="有人想連線到這台電腦" FontSize="18" FontWeight="SemiBold"/>
+        <TextBlock Margin="0,10,0,0" Foreground="{StaticResource Muted}" TextWrapping="Wrap"
+                   Text="只有在你認識這個裝置、而且正在等待這次連線時才按「允許」。"/>
+        <TextBlock Margin="0,12,0,2" Text="對方裝置的 ID" Foreground="{StaticResource Muted}" FontSize="12"/>
+        <TextBox x:Name="RequesterBox" IsReadOnly="True" FontFamily="Consolas" FontSize="20" FontWeight="SemiBold" AutomationProperties.Name="對方裝置的 ID"/>
+        <TextBlock x:Name="FullId" FontSize="11" Foreground="{StaticResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+
+        <TextBlock Margin="0,16,0,6" Text="要允許對方做什麼?" FontWeight="SemiBold"/>
+        <StackPanel x:Name="Rights"/>
+
+        <TextBlock x:Name="Countdown" Margin="0,14,0,0" Foreground="{StaticResource Muted}" FontSize="12"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+            <Button Content="拒絕" Click="OnDeny" IsCancel="True" Padding="22,6"/>
+            <Button x:Name="AllowButton" Content="允許" Click="OnAllow" Margin="0" Padding="22,6"
+                    Background="{StaticResource Accent}" Foreground="White" BorderThickness="0"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

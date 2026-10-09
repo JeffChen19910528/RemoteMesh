@@ -1,6 +1,7 @@
 using RemoteDesktop.Core;
 using RemoteDesktop.Server.Core;
 using RemoteDesktop.Server.Identity;
+using RemoteDesktop.Server.Persistence;
 using RemoteDesktop.Server.Infrastructure;
 using RemoteDesktop.Server.Presence;
 using RemoteDesktop.Server.Relay;
@@ -18,6 +19,7 @@ builder.Services.AddOpenApi();
 
 // Core server services (all singletons — to be replaced by DB-backed implementations)
 builder.Services.AddSingleton<IDeviceRegistry, InMemoryDeviceRegistry>();
+builder.Services.AddSingleton<IShortIdDirectory, InMemoryShortIdDirectory>();
 builder.Services.AddSingleton<ISessionManager, InMemorySessionManager>();
 builder.Services.AddSingleton<IPresenceService, InMemoryPresenceService>();
 builder.Services.AddSingleton<IAuditLog, InMemoryAuditLog>();
@@ -27,6 +29,12 @@ builder.Services.AddSingleton<IOtpService, OtpService>();
 builder.Services.AddSingleton<ISessionTokenService, SessionTokenService>();
 builder.Services.AddSingleton<IRateLimiter, InMemoryRateLimiter>();
 builder.Services.AddSingleton<ITrustedDeviceStore, InMemoryTrustedDeviceStore>();
+
+// Persistence: with RemoteMesh:Database:ConnectionString set, devices, short IDs, trusted devices and the audit log
+// live in PostgreSQL (and survive restarts); without it everything stays in memory.
+var database = builder.Configuration.GetSection("RemoteMesh:Database").Get<DatabaseOptions>() ?? new DatabaseOptions();
+database.Validate();
+if (database.Enabled) builder.Services.AddPostgresPersistence(database);
 
 // Configuration: limits come from appsettings / environment (RemoteMesh__Session__MaxTotalActiveSessions, ...).
 // Defaults are secure; a bad value stops the server at startup instead of misbehaving later. No secrets live here.
@@ -71,6 +79,9 @@ builder.Services.AddSingleton<IRelayService, InMemoryRelayService>();
 builder.Services.AddSignaling();
 
 var app = builder.Build();
+
+// Tables and the previous run's sessions must be in place before the first request arrives.
+if (database.Enabled) await app.Services.InitializePersistenceAsync();
 
 // Behind a trusted proxy the real client address and scheme come from X-Forwarded-*; this must run first so the
 // rate limits, lockouts and the TLS check below see the client, not the proxy.

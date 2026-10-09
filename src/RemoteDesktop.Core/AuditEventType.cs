@@ -22,5 +22,6 @@ public enum AuditEventType
     TrustedDeviceRemoved,
     RemoteSessionPaused,
     RemoteSessionResumed,
-    RemoteSessionExpired
+    RemoteSessionExpired,
+    DeviceKeyRotated // appended: the numbers above are stored in the database
 }

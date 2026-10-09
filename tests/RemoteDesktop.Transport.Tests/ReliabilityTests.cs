@@ -75,6 +75,33 @@ public sealed class ReliabilityTests
     }
 
     [Fact]
+    public async Task KeepAlive_Reset_ForgivesTheSilenceOfAnOutage_AndCanDetectLossAgain()
+    {
+        var clock = new ManualClock();
+        var (chA, _) = ControlPair();
+        var a = new KeepAliveService(chA, new KeepAliveOptions { Timeout = TimeSpan.FromSeconds(15) }, clock);
+        var lost = 0;
+        a.ConnectionLost += () => lost++;
+
+        clock.Advance(TimeSpan.FromSeconds(20));
+        await a.TickAsync();
+        Assert.True(a.IsLost);
+
+        // The connection under the channel was replaced: the 20 seconds of silence belong to the old one.
+        a.Reset();
+        Assert.False(a.IsLost);
+        clock.Advance(TimeSpan.FromSeconds(5));
+        await a.TickAsync();
+        Assert.False(a.IsLost);
+        Assert.Equal(1, lost);
+
+        clock.Advance(TimeSpan.FromSeconds(20)); // and the new connection can die too
+        await a.TickAsync();
+        Assert.True(a.IsLost);
+        Assert.Equal(2, lost);
+    }
+
+    [Fact]
     public async Task KeepAlive_InboundTraffic_ResetsTimeout()
     {
         var clock = new ManualClock();

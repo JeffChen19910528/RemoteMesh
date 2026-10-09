@@ -11,6 +11,13 @@ public interface ISessionManager
     Task<IReadOnlyList<SessionInfo>> GetActiveSessionsAsync(DeviceId deviceId, CancellationToken ct = default);
     Task<IReadOnlyList<SessionInfo>> GetSessionsByStateAsync(SessionState state, CancellationToken ct = default);
 
+    /// <summary>
+    /// Makes a change that was made directly on a <see cref="SessionInfo"/> from this manager (granted permissions,
+    /// the connection mode, the requester's short ID) durable. Manager methods persist themselves; this is for the
+    /// fields they do not cover. Nothing to do for the in-memory manager.
+    /// </summary>
+    Task SaveAsync(SessionId sessionId, CancellationToken ct = default);
+
     /// <summary>Sessions that are neither finished nor past their expiry (Maximum Sessions accounting).</summary>
     Task<int> CountActiveAsync(CancellationToken ct = default);
 
@@ -32,8 +39,7 @@ public interface ISessionManager
 
 public enum ResumeResult
 {
-    Resumed,
-    AlreadyConnected,
+    Resumed,          // from Paused, or from Connected when only the relay connection was lost; the epoch went up
     NotResumable,    // wrong state (never connected, closed, failed, ...)
     WindowExpired    // was paused too long; the session has been moved to Expired
 }

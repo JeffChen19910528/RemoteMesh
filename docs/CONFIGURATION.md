@@ -61,6 +61,17 @@ TimeSpan 以 `d.hh:mm:ss` 表示(`"00:02:00"` = 2 分鐘)。範例見 `deploy/ap
 | `UnauthorizedAttemptsPerAddress` | 10 | 每個來源位址 10 分鐘內未授權嘗試上限,超過鎖定 |
 | `MaxConcurrentPairings` | 10000 | 同時進行的 Relay 配對上限 |
 
+## 4b. `RemoteMesh:Database` — PostgreSQL
+
+沒有設定連線字串時,伺服器把一切放在記憶體(單實例,重啟即忘)。設定後,**設備與公鑰、短 ID 歸屬、信任設備、稽核紀錄、Session、恢復 token(只存雜湊)**存進 PostgreSQL;限流、鎖定計數、OTP、在線狀態仍在記憶體。啟動時用 EF 遷移建立或升級資料表(新增欄位/資料表的版本更新會自動套用;改結構時在 `src/server/RemoteDesktop.Server.Persistence` 執行 `dotnet ef migrations add <名稱>`,測試會檢查模型與遷移是否同步)並載回上次的 Session:連線中的 Session 以「已暫停」回來(恢復時限從重啟起算),客戶端會自動接回;資料庫連不上就拒絕啟動。只支援單一伺服器實例。
+
+| 鍵 | 預設 | 說明 |
+|---|---|---|
+| `ConnectionString` | 空(= 記憶體) | Npgsql 連線字串。**含密碼,只用環境變數 `RemoteMesh__Database__ConnectionString` 提供**,不要寫進會提交的檔案;格式錯誤時啟動失敗,訊息不重複字串內容 |
+| `AuditRetentionDays` | `90` | 每天刪除超過這個天數的稽核紀錄;`0` 永久保留;範圍 0–3650 |
+
+資料庫帳號只需要對自己的資料庫建立/讀寫資料表。`deploy/docker-compose.yml` 已附 PostgreSQL 服務(密碼由 `POSTGRES_PASSWORD` 提供,資料庫不對外開放連接埠)。
+
 ## 5. `RemoteMesh:ForwardedHeaders` — 反向代理
 
 預設**關閉**。啟用後只相信列出的代理送來的 `X-Forwarded-For` / `X-Forwarded-Proto`;沒有列出任何代理時伺服器拒絕啟動(否則任何用戶端都能偽造位址,繞過所有按位址的限流與鎖定)。
@@ -84,11 +95,27 @@ TimeSpan 以 `d.hh:mm:ss` 表示(`"00:02:00"` = 2 分鐘)。範例見 `deploy/ap
 
 ## 7. 客戶端選項(程式碼層級)
 
-客戶端函式庫的行為由 .NET 選項物件在程式碼中設定。**Agent 尚未實作,因此目前沒有客戶端設定檔**,規劃中的 `server.signalingUrl`、`device.name`、`security.requireApproval`、`performance.*`、`features.*` 尚未提供。
+客戶端函式庫的行為由 .NET 選項物件在程式碼中設定(`ClientOptions`)。無介面的 **Agent** 從 `appsettings.json` / 環境變數 `Agent__*` 讀取下表設定,啟動時驗證,不合法就拒絕啟動並列出所有問題。
+
+| `Agent:` 設定 | 預設 | 說明 |
+|---|---|---|
+| `ServerUrl` | (必填) | 伺服器網址;非 localhost 必須是 https |
+| `DeviceName` | 機器名稱 | 1–64 字元 |
+| `DataDirectory` | 使用者預設位置 | 設備身分與私鑰的位置 |
+| `FileRoot` | 空(關閉) | 遠端檔案傳輸唯一可觸及的資料夾,必須是絕對路徑 |
+| `AllowClipboard` | `false` | 允許檢視端使用本機剪貼簿(仍受每個 Session 授予的權限限制) |
+| `TrustedPeers` | 空 | 不經人工核准即可連線的設備清單,每筆列出 `DeviceId` 與 `Permissions`(例如 `ViewOnly`、`ViewScreen, ControlMouse`)。**不在清單內的一律拒絕**;不可包含重啟/關機 |
+
+Agent 必須在**登入使用者的工作階段**中執行(例如開機自動啟動的一般程式):Windows 服務跑在 session 0,看不到使用者的螢幕。
+
+規劃中的 `performance.*`、`features.*` 等設定尚未提供。
 
 | 選項類別 | 重點預設 |
 |---|---|
 | `KeepAliveOptions` | 間隔 5 秒、逾時 15 秒 |
+| `ClientOptions.ReconnectTimeout` | 連線中斷後最長嘗試接回的時間,預設 2 分鐘;超過就結束 Session(原因 `could not reconnect`)。伺服器端的恢復視窗預設 1 分鐘 |
+| `ClientOptions.ReconnectGrace` | 只有 Relay 連線斷了、伺服器連線正常時,先等對方自己重建這麼久(預設 2 秒;被控端等兩倍),避免兩端同時換金鑰 |
+| 信令連線重試 | 立即、1 秒、2 秒,之後每 2–5 秒(隨機)一直試到客戶端關閉為止 |
 | `ReconnectPolicy` | 初始 1 秒、上限 30 秒、倍數 2、抖動 ±20%、最多 10 次、總時限 2 分鐘 |
 | `InputGateOptions` | 座標 ≤ 32767、滾輪 ≤ 1200、按鍵 ≤ 4、時鐘偏差 30 秒、重放視窗 4096、1000 事件/秒 |
 | `ClipboardHostOptions` | 每 10 秒 20 次請求;剪貼簿策略預設 `Disabled` |

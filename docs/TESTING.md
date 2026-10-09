@@ -9,6 +9,8 @@ dotnet test tests/RemoteDesktop.Core.Tests --filter "FullyQualifiedName~SessionI
 dotnet test tests/RemoteDesktop.Performance.Tests -c Release     # 效能數字要用 Release
 ```
 
+資料庫測試(`Server.Persistence.Tests`,含重啟後還原 Session 與 token)需要一個測試用的 PostgreSQL:把 `RM_TEST_PG` 設成它的連線字串(例如 `Host=localhost;Port=5432;Username=postgres;Password=...`),每個測試會建立並刪除自己的資料庫;沒設定時這些測試會被略過(不算通過)。起一個拋棄式的:`docker run -d --name rm-pg -e POSTGRES_PASSWORD=<密碼> -p 5432:5432 postgres:17-alpine`。
+
 效能測試專案的匯出選項:`RM_PERF_OUT=<檔案>` 把量測結果寫成表格;`RM_PERF_FILE_MB=<大小>` 調整大檔案測試(預設 256)。
 
 ## 2. 策略與專案
@@ -25,7 +27,7 @@ dotnet test tests/RemoteDesktop.Performance.Tests -c Release     # 效能數字�
 | Performance | `Performance.Tests` | 延遲、FPS、CPU、記憶體、頻寬、大檔案、多 Session、伺服器負載(門檻寬鬆,抓退化) |
 | Acceptance | `Integration.Tests`(`AcceptanceTests`) | 完整產品路徑:設備認證 → 核准/OTP/信任設備 → Relay → 加密 → 五個通道 → 權限 → 恢復 → 稽核 |
 
-測試專案共 12 個。最近一次完整執行:**全部通過、0 失敗**(見 RELEASE_READINESS.md 的數字)。
+測試專案共 18 個(含 `Server.Persistence.Tests`)。最近一次完整執行:**全部通過、0 失敗**(見 RELEASE_READINESS.md 的數字)。
 
 ## 3. 重點涵蓋
 
@@ -43,6 +45,7 @@ dotnet test tests/RemoteDesktop.Performance.Tests -c Release     # 效能數字�
 2. **全部在單一行程內以記憶體傳輸執行**:沒有真實網路的延遲、封包遺失與重新排序;沒有 TLS。
 3. **OS 後端沒有被測試**:螢幕擷取、輸入注入、剪貼簿只有介面與測試用實作。
 4. **Unix 專屬行為**:私鑰檔案權限的測試只在 Unix 上做斷言(開發機是 Windows,該測試在 Windows 上直接通過而不斷言);請在 Linux CI 上確認。
+5. **Linux 與 macOS 後端**:`Platform.Tests` 裡「需要真實 X 伺服器」的測試在 Windows 上略過,在 Linux 上以 Xvfb 執行(`xvfb-run dotnet test tests/RemoteDesktop.Platform.Tests`,0 略過);已在 WSL(Ubuntu 24.04)上跑過。**macOS 的後端只有邏輯測試(鍵碼表、座標與縮放、剪貼簿指令),擷取與事件注入沒有在 Mac 上執行過。**
 5. **效能測試的絕對數字隨機器而異**,門檻只用來抓明顯退化。
 6. **沒有長時間 soak 測試、沒有模糊測試(fuzzing)、沒有外部滲透測試。** 畸形輸入有針對性的案例測試,但沒有系統性的 fuzz。
 7. 部分 Windows 專屬的 TestServer WebSocket 拆除時序曾造成偶發失敗(已修正並加測試);如再出現與 `TestWebSocket` 釋放有關的偶發失敗,請先檢查拆除順序。

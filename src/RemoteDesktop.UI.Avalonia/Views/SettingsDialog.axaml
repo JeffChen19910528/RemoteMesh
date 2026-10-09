@@ -1,0 +1,30 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="RemoteDesktop.UI.Avalonia.Views.SettingsDialog"
+        Title="設定" Width="480" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner" FontSize="14">
+  <StackPanel Margin="22">
+    <TextBlock x:Name="Problem" Foreground="#B91C1C" TextWrapping="Wrap" IsVisible="False" Margin="0,0,0,10"/>
+
+    <TextBlock Text="伺服器網址" FontWeight="SemiBold"/>
+    <TextBlock Classes="hint" Text="由管理者提供,例如 https://relay.example.com"/>
+    <TextBox x:Name="ServerUrl" Margin="0,4,0,12" AutomationProperties.Name="伺服器網址"/>
+
+    <TextBlock Text="這台電腦的名稱" FontWeight="SemiBold"/>
+    <TextBox x:Name="DeviceName" Margin="0,4,0,12" MaxLength="64" AutomationProperties.Name="這台電腦的名稱"/>
+
+    <CheckBox x:Name="AllowClipboard" Content="允許連線的人使用這台電腦的剪貼簿(每次連線仍需你授權)" Margin="0,0,0,12"/>
+
+    <TextBlock Text="檔案傳輸資料夾" FontWeight="SemiBold"/>
+    <TextBlock Classes="hint" Text="對方只能存取這個資料夾。留空表示關閉檔案傳輸。"/>
+    <DockPanel Margin="0,4,0,16">
+      <Button DockPanel.Dock="Right" Margin="8,0,0,0" Content="瀏覽…" Click="OnBrowse"/>
+      <TextBox x:Name="FileRoot" AutomationProperties.Name="檔案傳輸資料夾"/>
+    </DockPanel>
+
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+      <Button Content="取消" IsCancel="True" Click="OnCancel" Padding="22,6"/>
+      <Button Content="儲存" Click="OnSave" IsDefault="True" Margin="0" Padding="22,6" Classes="primary"/>
+    </StackPanel>
+  </StackPanel>
+</Window>

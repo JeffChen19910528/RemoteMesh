@@ -269,15 +269,20 @@ public sealed class SessionRecoveryTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Resume_WhenAlreadyConnected_IsIdempotent()
+    public async Task Resume_WhenStillConnected_StartsANewEpoch_AndTellsThePeer()
     {
         await EstablishConnectedSessionAsync();
-        // Alice reconnected on a new connection before the server noticed the old one drop.
+        // Alice reconnected on a new connection before the server noticed the old one drop (or only her relay
+        // connection died): the session is still Connected, and her token still gets her a fresh key epoch.
         var alice2 = await ReconnectAliceAsync();
 
         var dto = await alice2.InvokeAsync<SessionDto>("ResumeSession", _sessionId, _aliceToken);
 
         Assert.Equal(nameof(SessionState.Connected), dto.State);
+        Assert.Equal(1, dto.Epoch);
+        await WaitUntil(() => { lock (_bobStateUpdates) return _bobStateUpdates.Last().Epoch == 1; }); // Bob must reopen at epoch 1
+        // ...and the token that did it cannot do it again.
+        await Assert.ThrowsAsync<HubException>(() => alice2.InvokeAsync<SessionDto>("ResumeSession", _sessionId, _aliceToken));
     }
 
     [Fact]

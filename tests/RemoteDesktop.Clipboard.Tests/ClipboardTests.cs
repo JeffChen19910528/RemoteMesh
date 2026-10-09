@@ -7,7 +7,7 @@ namespace RemoteDesktop.Clipboard.Tests;
 public sealed class ClipboardTests : IAsyncLifetime
 {
     private readonly CancellationTokenSource _cts = new(TimeSpan.FromSeconds(20));
-    private readonly InMemoryClipboardManager _clip = new();
+    private IClipboardManager _clip = new InMemoryClipboardManager();
     private SessionInfo _session = null!;
     private ClipboardClient _client = null!;
     private Task _hostLoop = null!;
@@ -136,6 +136,31 @@ public sealed class ClipboardTests : IAsyncLifetime
         Assert.Equal(ClipboardResult.Ok, await _client.WriteAsync(ClipboardFormat.Image, [9, 8, 7], Short, _cts.Token));
         var img = await _client.ReadAsync(ClipboardFormat.Image, Short, _cts.Token);
         Assert.Equal(new byte[] { 9, 8, 7 }, img.Data);
+    }
+
+    /// <summary>A host clipboard that cannot take images (the Windows backend today).</summary>
+    private sealed class TextOnlyClipboard : IClipboardManager
+    {
+        public ClipboardPolicy Policy { get; set; } = ClipboardPolicy.Disabled;
+        public string? Text { get; private set; }
+        public Task<string?> GetTextAsync(CancellationToken ct = default) => Task.FromResult(Text);
+        public Task SetTextAsync(string text, CancellationToken ct = default) { Text = text; return Task.CompletedTask; }
+        public Task<byte[]?> GetImageAsync(CancellationToken ct = default) => Task.FromResult<byte[]?>(null);
+        public Task SetImageAsync(byte[] imageData, CancellationToken ct = default) => throw new NotSupportedException();
+    }
+
+    [Fact]
+    public async Task HostThatCannotTakeImages_Refuses_AndKeepsServing()
+    {
+        var textOnly = new TextOnlyClipboard();
+        _clip = textOnly;
+        Start(Permission.FullControl, ClipboardPolicy.Bidirectional);
+
+        // The unsupported write is refused...
+        Assert.Equal(ClipboardResult.PolicyDenied, await _client.WriteAsync(ClipboardFormat.Image, [1, 2, 3], Short, _cts.Token));
+        // ...and the channel did not die: text still works afterwards.
+        Assert.Equal(ClipboardResult.Ok, await _client.WriteTextAsync("still alive", Short, _cts.Token));
+        Assert.Equal("still alive", textOnly.Text);
     }
 
     // ── Session permissions ──────────────────────────────────────────────

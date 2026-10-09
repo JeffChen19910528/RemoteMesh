@@ -39,6 +39,33 @@ public sealed class OsKeyStore : IKeyStore
         return Task.CompletedTask;
     }
 
+    public async Task StagePendingAsync(DeviceId deviceId, DeviceKeyPair next, CancellationToken ct = default) =>
+        await SaveAsync(PendingPath(deviceId), next, ct);
+
+    public async Task<DeviceKeyPair?> LoadPendingAsync(DeviceId deviceId, CancellationToken ct = default)
+    {
+        var path = PendingPath(deviceId);
+        if (!File.Exists(path)) return null;
+        try { return await LoadAsync(path, ct); }
+        catch (Exception ex) when (ex is InvalidDataException or System.Text.Json.JsonException or FormatException or CryptographicException)
+        {
+            return null; // a half-written staging file is as good as none
+        }
+    }
+
+    public Task CommitPendingAsync(DeviceId deviceId, CancellationToken ct = default)
+    {
+        File.Move(PendingPath(deviceId), KeyPath(deviceId), overwrite: true); // one step: the old key is gone only when the new one is in place
+        return Task.CompletedTask;
+    }
+
+    public Task DiscardPendingAsync(DeviceId deviceId, CancellationToken ct = default)
+    {
+        var path = PendingPath(deviceId);
+        if (File.Exists(path)) File.Delete(path);
+        return Task.CompletedTask;
+    }
+
     private async Task<DeviceKeyPair> LoadAsync(string path, CancellationToken ct)
     {
         var json = await File.ReadAllTextAsync(path, ct);
@@ -110,6 +137,9 @@ public sealed class OsKeyStore : IKeyStore
             File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
         }
     }
+
+    private string PendingPath(DeviceId deviceId) =>
+        Path.Combine(_baseDirectory, $"{deviceId}.key.next");
 
     private string KeyPath(DeviceId deviceId) =>
         Path.Combine(_baseDirectory, $"{deviceId}.key");

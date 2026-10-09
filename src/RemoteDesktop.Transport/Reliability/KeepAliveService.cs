@@ -50,6 +50,20 @@ public sealed class KeepAliveService
     /// <summary>Control messages that are not keep-alive frames.</summary>
     public event Action<ReadOnlyMemory<byte>>? ControlMessage;
 
+    /// <summary>
+    /// Starts counting again after the connection under the channel was replaced: the silence of the outage must not
+    /// count against the new connection, and a peer declared lost gets a clean slate.
+    /// </summary>
+    public void Reset()
+    {
+        lock (_lock)
+        {
+            _lastSeen = _clock.GetUtcNow();
+            _outstanding.Clear();
+        }
+        Volatile.Write(ref _lost, 0);
+    }
+
     public async Task RunAsync(CancellationToken ct = default)
     {
         using var timer = new PeriodicTimer(_opt.Interval, _clock);

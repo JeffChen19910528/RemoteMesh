@@ -11,6 +11,16 @@
     <Project Path="src/RemoteDesktop.Protocol/RemoteDesktop.Protocol.csproj" />
     <Project Path="src/RemoteDesktop.Relay/RemoteDesktop.Relay.csproj" />
     <Project Path="src/RemoteDesktop.Security/RemoteDesktop.Security.csproj" />
+    <Project Path="src/RemoteDesktop.Platform.Windows/RemoteDesktop.Platform.Windows.csproj" />
+    <Project Path="src/RemoteDesktop.Platform.Skia/RemoteDesktop.Platform.Skia.csproj" />
+    <Project Path="src/RemoteDesktop.Platform.Linux/RemoteDesktop.Platform.Linux.csproj" />
+    <Project Path="src/RemoteDesktop.Platform.Common/RemoteDesktop.Platform.Common.csproj" />
+    <Project Path="src/RemoteDesktop.Platform.MacOS/RemoteDesktop.Platform.MacOS.csproj" />
+    <Project Path="src/RemoteDesktop.Platform/RemoteDesktop.Platform.csproj" />
+    <Project Path="src/RemoteDesktop.Client/RemoteDesktop.Client.csproj" />
+    <Project Path="src/RemoteDesktop.UI.Core/RemoteDesktop.UI.Core.csproj" />
+    <Project Path="src/RemoteDesktop.UI/RemoteDesktop.UI.csproj" />
+    <Project Path="src/RemoteDesktop.UI.Avalonia/RemoteDesktop.UI.Avalonia.csproj" />
     <Project Path="src/RemoteDesktop.Signaling/RemoteDesktop.Signaling.csproj" />
     <Project Path="src/RemoteDesktop.Streaming/RemoteDesktop.Streaming.csproj" />
     <Project Path="src/RemoteDesktop.Transport/RemoteDesktop.Transport.csproj" />
@@ -40,6 +50,13 @@
     <Project Path="tests/RemoteDesktop.Security.Tests/RemoteDesktop.Security.Tests.csproj" />
     <Project Path="tests/RemoteDesktop.Signaling.Tests/RemoteDesktop.Signaling.Tests.csproj" />
     <Project Path="tests/RemoteDesktop.Server.Application.Tests/RemoteDesktop.Server.Application.Tests.csproj" />
+    <Project Path="tests/RemoteDesktop.Server.Persistence.Tests/RemoteDesktop.Server.Persistence.Tests.csproj" />
+    <Project Path="tests/RemoteDesktop.Platform.Windows.Tests/RemoteDesktop.Platform.Windows.Tests.csproj" />
+    <Project Path="tests/RemoteDesktop.Platform.Tests/RemoteDesktop.Platform.Tests.csproj" />
+    <Project Path="tests/RemoteDesktop.Client.Tests/RemoteDesktop.Client.Tests.csproj" />
+    <Project Path="tests/RemoteDesktop.Agent.Tests/RemoteDesktop.Agent.Tests.csproj" />
+    <Project Path="tests/RemoteDesktop.UI.Tests/RemoteDesktop.UI.Tests.csproj" />
+    <Project Path="tests/RemoteDesktop.UI.Avalonia.Tests/RemoteDesktop.UI.Avalonia.Tests.csproj" />
     <Project Path="tests/RemoteDesktop.Streaming.Tests/RemoteDesktop.Streaming.Tests.csproj" />
     <Project Path="tests/RemoteDesktop.Transport.Tests/RemoteDesktop.Transport.Tests.csproj" />
   </Folder>

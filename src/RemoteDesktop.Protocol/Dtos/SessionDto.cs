@@ -7,6 +7,7 @@ public sealed class SessionDto
     public string SessionId { get; set; } = string.Empty;
     public string RequesterDeviceId { get; set; } = string.Empty;
     public string TargetDeviceId { get; set; } = string.Empty;
+    public string? RequesterShortId { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset ExpiresAt { get; set; }
     public string State { get; set; } = nameof(SessionState.Created);
@@ -21,6 +22,7 @@ public sealed class SessionDto
         SessionId = s.SessionId.ToString(),
         RequesterDeviceId = s.RequesterDeviceId.ToString(),
         TargetDeviceId = s.TargetDeviceId.ToString(),
+        RequesterShortId = s.RequesterShortId,
         CreatedAt = s.CreatedAt,
         ExpiresAt = s.ExpiresAt,
         State = s.State.ToString(),
@@ -33,6 +35,7 @@ public sealed class SessionDto
         SessionId = Core.SessionId.Parse(SessionId),
         RequesterDeviceId = Core.DeviceId.Parse(RequesterDeviceId),
         TargetDeviceId = Core.DeviceId.Parse(TargetDeviceId),
+        RequesterShortId = RequesterShortId,
         CreatedAt = CreatedAt,
         ExpiresAt = ExpiresAt,
         State = Enum.Parse<SessionState>(State),

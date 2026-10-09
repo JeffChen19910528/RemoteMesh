@@ -73,6 +73,29 @@ public sealed class PeerKeyTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task PeerIdentity_NamesTheOtherDeviceAndItsKey_ToParticipantsOnly()
+    {
+        var alice = await NewActorAsync("alice");
+        var bob = await NewActorAsync("bob");
+        var mallory = await NewActorAsync("mallory");
+        var s = await alice.Conn.InvokeAsync<SessionDto>("RequestSession", bob.Dto.DeviceId, _cts.Token);
+        await Assert.ThrowsAsync<HubException>(() => alice.Conn.InvokeAsync<DeviceInfoDto>("GetPeerIdentity", s.SessionId, _cts.Token)); // not approved yet
+        await Eventually(() => !bob.Incoming.IsEmpty);
+        await bob.Conn.InvokeAsync("RespondToSession", s.SessionId, true, (long)Permission.ViewScreen, _cts.Token);
+
+        var seenByAlice = await alice.Conn.InvokeAsync<DeviceInfoDto>("GetPeerIdentity", s.SessionId, _cts.Token);
+        var seenByBob = await bob.Conn.InvokeAsync<DeviceInfoDto>("GetPeerIdentity", s.SessionId, _cts.Token);
+        Assert.Equal(bob.Dto.DeviceId, seenByAlice.DeviceId);
+        Assert.Equal(bob.Dto.PublicKeyBase64, seenByAlice.PublicKeyBase64);
+        Assert.Equal(alice.Dto.DeviceId, seenByBob.DeviceId);
+        Assert.Equal(alice.Dto.PublicKeyBase64, seenByBob.PublicKeyBase64);
+
+        var outsider = await Assert.ThrowsAsync<HubException>(() => mallory.Conn.InvokeAsync<DeviceInfoDto>("GetPeerIdentity", s.SessionId, _cts.Token));
+        var unknown = await Assert.ThrowsAsync<HubException>(() => mallory.Conn.InvokeAsync<DeviceInfoDto>("GetPeerIdentity", SessionId.New().ToString(), _cts.Token));
+        Assert.Equal(unknown.Message, outsider.Message); // no existence oracle here either
+    }
+
+    [Fact]
     public async Task Outsider_And_UnknownSession_AreIndistinguishable()
     {
         var alice = await NewActorAsync("alice");

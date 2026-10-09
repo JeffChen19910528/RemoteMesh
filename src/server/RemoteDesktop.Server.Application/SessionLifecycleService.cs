@@ -61,6 +61,7 @@ public sealed class SessionLifecycleService(
 
         session.State = SessionState.Connected;
         session.ConnectionMode = connectionMode;
+        await sessions.SaveAsync(sessionId);
         if (!moved) return; // repeat report on an already-connected session: nothing else to do
 
         await notifier.NotifyAsync(SessionSupport.PeerOf(session, reporterId), "SessionStateChanged", SessionDto.From(session));
@@ -103,7 +104,14 @@ public sealed class SessionLifecycleService(
     /// The pinned public key of the other participant, needed to derive the end-to-end session key. Only a participant
     /// of an approved session may ask, so this is not a way to look up arbitrary devices' keys.
     /// </summary>
-    public async Task<string> GetPeerPublicKeyAsync(ICallerContext caller, string sessionIdStr)
+    public async Task<string> GetPeerPublicKeyAsync(ICallerContext caller, string sessionIdStr) =>
+        (await GetPeerIdentityAsync(caller, sessionIdStr)).PublicKeyBase64;
+
+    /// <summary>
+    /// Who the other participant is (device ID, name) and the key the server pinned for it. The client pins what it
+    /// sees here the first time and refuses the session if the key ever differs, so the server cannot swap it later.
+    /// </summary>
+    public async Task<DeviceInfoDto> GetPeerIdentityAsync(ICallerContext caller, string sessionIdStr)
     {
         var deviceId = support.RequireRegistered(caller);
         var sessionId = SessionSupport.ParseSessionId(sessionIdStr);
@@ -114,9 +122,31 @@ public sealed class SessionLifecycleService(
         if (session.State is not (SessionState.EstablishingTransport or SessionState.Connected or SessionState.Paused))
             throw new SignalingException("Session is not ready for transport.");
 
-        var key = await devices.GetPublicKeyAsync(SessionSupport.PeerOf(session, deviceId));
-        if (key is null) throw new SignalingException("Session not found.");
-        return Convert.ToBase64String(key);
+        var peerId = SessionSupport.PeerOf(session, deviceId);
+        var key = await devices.GetPublicKeyAsync(peerId);
+        var info = await devices.FindAsync(peerId);
+        if (key is null || info is null) throw new SignalingException("Session not found.");
+        return DeviceInfoDto.From(info, key);
+    }
+
+    /// <summary>
+    /// The other participant's key history, oldest first, for a client whose pinned key for that device no longer
+    /// matches: each step is signed by both keys, so the client can walk from the key it pinned to the current one
+    /// and trust the result without trusting this server. Same access rules as <see cref="GetPeerIdentityAsync"/>.
+    /// </summary>
+    public async Task<List<KeyRotationDto>> GetPeerKeyRotationsAsync(ICallerContext caller, string sessionIdStr)
+    {
+        var deviceId = support.RequireRegistered(caller);
+        var sessionId = SessionSupport.ParseSessionId(sessionIdStr);
+        if (!rateLimiter.TryConsume($"peerkey:{sessionId}:{deviceId}", security.RelayTokenRequestsPerMinute, TimeSpan.FromMinutes(1)))
+            throw new SignalingException("Too many requests.");
+
+        var session = await support.GetParticipantSessionAsync(sessionId, deviceId);
+        if (session.State is not (SessionState.EstablishingTransport or SessionState.Connected or SessionState.Paused))
+            throw new SignalingException("Session is not ready for transport.");
+
+        var rotations = await devices.GetRotationsAsync(SessionSupport.PeerOf(session, deviceId));
+        return rotations.Select(KeyRotationDto.From).ToList();
     }
 
     // ── Closing ──────────────────────────────────────────────────────────
@@ -232,6 +262,22 @@ public sealed class SessionLifecycleService(
         return dto;
     }
 
+    private async Task WithdrawPendingRequestAsync(SessionInfo s)
+    {
+        if (!await sessions.TryTransitionAsync(s.SessionId, SessionState.Negotiating, SessionState.Failed)) return; // answered meanwhile
+        tokens.Revoke(s.SessionId);
+        await notifier.NotifyAsync(s.TargetDeviceId, "SessionClosed", s.SessionId.ToString(), "requester-disconnected");
+        await audit.WriteAsync(new AuditEvent
+        {
+            ActorDeviceId = s.RequesterDeviceId,
+            TargetDeviceId = s.TargetDeviceId,
+            SessionId = s.SessionId,
+            EventType = AuditEventType.RemoteSessionRejected,
+            Success = false,
+            Reason = "requester-disconnected"
+        });
+    }
+
     /// <summary>
     /// A dropped peer pauses its Connected sessions instead of leaving them live forever; the reaper expires them
     /// if nobody resumes within the recovery window.
@@ -240,6 +286,13 @@ public sealed class SessionLifecycleService(
     {
         foreach (var s in await sessions.GetActiveSessionsAsync(deviceId))
         {
+            // A request still waiting for the target's answer dies with the requester: otherwise the target is
+            // left looking at a prompt for somebody who is already gone.
+            if (s.State == SessionState.Negotiating && s.RequesterDeviceId == deviceId)
+            {
+                await WithdrawPendingRequestAsync(s);
+                continue;
+            }
             if (s.State != SessionState.Connected) continue;
             if (!await sessions.TryPauseAsync(s.SessionId, clock.GetUtcNow())) continue;
 

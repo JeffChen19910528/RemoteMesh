@@ -16,6 +16,7 @@ public sealed class SignalingHub(
     DeviceRegistrationService registration,
     SessionNegotiationService negotiation,
     SessionLifecycleService lifecycle,
+    KeyRotationService keyRotation,
     TrustedDeviceService trusted) : Hub
 {
     private HubCallerAdapter Caller => new(Context);
@@ -27,7 +28,17 @@ public sealed class SignalingHub(
     public Task RegisterDevice(DeviceInfoDto dto, string signatureBase64) =>
         registration.RegisterAsync(Caller, dto, signatureBase64);
 
+    /// <summary>Moves this device to a new key; both the old and the new key sign the statement (see <c>KeyRotationProof</c>).</summary>
+    public Task RotateDeviceKey(string newKeyBase64, string oldKeySignatureBase64, string newKeySignatureBase64) =>
+        keyRotation.RotateAsync(Caller, newKeyBase64, oldKeySignatureBase64, newKeySignatureBase64);
+
+    public Task<List<KeyRotationDto>> GetPeerKeyRotations(string sessionIdStr) =>
+        lifecycle.GetPeerKeyRotationsAsync(Caller, sessionIdStr);
+
     public Task Heartbeat() => registration.HeartbeatAsync(Caller);
+
+    /// <summary>This device's short ID (nine digits). <paramref name="preferred"/> is the number it had before, if any.</summary>
+    public Task<string> ClaimShortId(string? preferred) => registration.ClaimShortIdAsync(Caller, preferred);
 
     // ── Session request / approval / one-time code ───────────────────────
 
@@ -64,6 +75,9 @@ public sealed class SignalingHub(
 
     public Task<string> GetPeerPublicKey(string sessionIdStr) =>
         lifecycle.GetPeerPublicKeyAsync(Caller, sessionIdStr);
+
+    public Task<DeviceInfoDto> GetPeerIdentity(string sessionIdStr) =>
+        lifecycle.GetPeerIdentityAsync(Caller, sessionIdStr);
 
     public Task CloseSession(string sessionIdStr, string? reason = null) =>
         lifecycle.CloseSessionAsync(Caller, sessionIdStr, reason);

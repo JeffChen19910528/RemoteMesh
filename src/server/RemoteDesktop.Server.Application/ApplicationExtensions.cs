@@ -21,6 +21,7 @@ public static class ApplicationExtensions
         services.AddSingleton<SessionLifecycleService>();
         services.AddSingleton<SessionNegotiationService>();
         services.AddSingleton<DeviceRegistrationService>();
+        services.AddSingleton<KeyRotationService>();
         services.AddSingleton<TrustedDeviceService>();
 
         services.AddSingleton<SessionRecoveryService>();

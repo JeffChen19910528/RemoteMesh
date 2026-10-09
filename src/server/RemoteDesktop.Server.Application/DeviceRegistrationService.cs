@@ -13,6 +13,7 @@ public sealed class DeviceRegistrationService(
     IDeviceAuthenticator auth,
     IDeviceRegistry devices,
     IPresenceService presence,
+    IShortIdDirectory shortIds,
     IConnectionTracker connections,
     IOtpService otp,
     IRateLimiter rateLimiter,
@@ -69,6 +70,19 @@ public sealed class DeviceRegistrationService(
             EventType = AuditEventType.DeviceRegistered,
             Success = true
         });
+    }
+
+    /// <summary>
+    /// Gives this (registered) device its short ID. A device that remembers its old number asks for it again; it is
+    /// granted only if nobody else holds it.
+    /// </summary>
+    public async Task<string> ClaimShortIdAsync(ICallerContext caller, string? preferred)
+    {
+        var deviceId = connections.GetDeviceId(caller.ConnectionId)
+            ?? throw new SignalingException("Device is not registered on this connection. Call BeginRegistration and RegisterDevice first.");
+        if (!rateLimiter.TryConsume($"shortid:{deviceId}", 10, TimeSpan.FromMinutes(1)))
+            throw new SignalingException("Too many requests.");
+        return await shortIds.AssignAsync(deviceId, preferred);
     }
 
     public async Task HeartbeatAsync(ICallerContext caller)

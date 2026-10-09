@@ -5,6 +5,9 @@ public sealed class SessionInfo
     public SessionId SessionId { get; init; }
     public DeviceId RequesterDeviceId { get; init; }
     public DeviceId TargetDeviceId { get; init; }
+
+    /// <summary>The requester's short ID, so the person being asked sees the number the requester knows.</summary>
+    public string? RequesterShortId { get; set; }
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset ExpiresAt { get; init; }
     public SessionState State { get; set; } = SessionState.Created;

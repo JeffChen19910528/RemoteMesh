@@ -115,7 +115,13 @@ public sealed class InMemorySessionManager : ISessionManager
         {
             if (!_sessions.TryGetValue(sessionId, out var s) || s.IsExpired && s.State != SessionState.Paused)
                 return Task.FromResult(ResumeResult.NotResumable);
-            if (s.State == SessionState.Connected) return Task.FromResult(ResumeResult.AlreadyConnected);
+            // A Connected session can be resumed too: the device lost its relay connection but the server never saw
+            // it leave (or it came back before the server noticed). It gets a new epoch, hence a new key, either way.
+            if (s.State == SessionState.Connected)
+            {
+                s.Epoch++;
+                return Task.FromResult(ResumeResult.Resumed);
+            }
             if (s.State != SessionState.Paused) return Task.FromResult(ResumeResult.NotResumable);
 
             if (s.IsExpired || now - (s.PausedAt ?? s.CreatedAt) > window)
@@ -145,6 +151,11 @@ public sealed class InMemorySessionManager : ISessionManager
             return Task.FromResult(true);
         }
     }
+
+    public Task SaveAsync(SessionId sessionId, CancellationToken ct = default) => Task.CompletedTask;
+
+    /// <summary>Puts a session back after a restart (see the persistent manager).</summary>
+    public void Restore(SessionInfo session) => _sessions[session.SessionId] = session;
 
     public int Count => _sessions.Count;
 }

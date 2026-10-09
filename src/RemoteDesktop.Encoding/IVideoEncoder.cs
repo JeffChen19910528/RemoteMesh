@@ -6,6 +6,10 @@ public interface IVideoEncoder : IAsyncDisposable
 {
     CodecType Codec { get; }
     VideoQuality Quality { get; set; }
+    /// <summary>
+    /// Encodes one frame. An empty result means "nothing changed, send nothing": the viewer already shows this
+    /// picture, and the encoder has not used a sequence number for it.
+    /// </summary>
     Task<ReadOnlyMemory<byte>> EncodeAsync(CaptureFrame frame, CancellationToken ct = default);
 
     /// <summary>

@@ -1,0 +1,85 @@
+<Window x:Class="RemoteDesktop.UI.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="RemoteMesh" Width="520" Height="640" MinWidth="480" MinHeight="560"
+        WindowStartupLocation="CenterScreen" FontFamily="Segoe UI, Microsoft JhengHei UI" FontSize="14">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- This computer -->
+        <Border Grid.Row="0" Style="{StaticResource CardBorder}">
+            <StackPanel>
+                <TextBlock Style="{StaticResource SectionTitle}" Text="這台電腦"/>
+                <TextBlock Text="我的 ID(把這串數字告訴要連線到這台電腦的人)" Foreground="{StaticResource Muted}" FontSize="12"/>
+                <DockPanel Margin="0,4,0,10">
+                    <Button DockPanel.Dock="Right" Margin="8,0,0,0" Content="複製" Command="{Binding CopyIdCommand}"/>
+                    <TextBox x:Name="MyIdBox" Text="{Binding MyId, Mode=OneWay}" IsReadOnly="True" ToolTip="{Binding MyDeviceId}"
+                             FontFamily="Consolas" FontSize="24" FontWeight="SemiBold" AutomationProperties.Name="我的 ID"/>
+                </DockPanel>
+                <TextBlock Text="一次性密碼(對方輸入後可免核准連線,只能查看畫面,用過即失效)" Foreground="{StaticResource Muted}" FontSize="12"
+                           TextWrapping="Wrap"/>
+                <DockPanel Margin="0,4,0,0">
+                    <Button DockPanel.Dock="Right" Margin="8,0,0,0" Content="產生新密碼" Command="{Binding NewCodeCommand}"/>
+                    <TextBox Text="{Binding Otp, Mode=OneWay}" IsReadOnly="True" FontFamily="Consolas" FontSize="22"
+                             FontWeight="SemiBold" AutomationProperties.Name="一次性密碼"/>
+                </DockPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Remote computer -->
+        <Border Grid.Row="1" Style="{StaticResource CardBorder}">
+            <StackPanel>
+                <TextBlock Style="{StaticResource SectionTitle}" Text="連線到另一台電腦"/>
+                <TextBlock Text="對方的 ID(對方畫面上顯示的 9 位數字)" Foreground="{StaticResource Muted}" FontSize="12"/>
+                <TextBox Text="{Binding RemoteId, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas" FontSize="18" Margin="0,4,0,10"
+                         AutomationProperties.Name="對方的 ID"/>
+                <TextBlock Text="一次性密碼(選填;沒有的話,對方會收到核准要求)" Foreground="{StaticResource Muted}" FontSize="12"/>
+                <TextBox x:Name="CodeBox" Text="{Binding RemoteCode, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas"
+                         Margin="0,4,0,12" MaxLength="16" AutomationProperties.Name="對方的一次性密碼"/>
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="連線" Command="{Binding ConnectCommand}" IsDefault="True" Padding="26,6"
+                            Background="{StaticResource Accent}" Foreground="White" BorderThickness="0"/>
+                    <TextBlock Text="{Binding Error}" Foreground="#B91C1C" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="320"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Who is connected to this computer -->
+        <TextBlock Grid.Row="2" Style="{StaticResource SectionTitle}" Text="正在控制這台電腦的對象"/>
+        <ListBox Grid.Row="3" ItemsSource="{Binding BeingControlled}" HorizontalContentAlignment="Stretch"
+                 BorderBrush="{StaticResource Line}" AutomationProperties.Name="正在控制這台電腦的對象">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <DockPanel Margin="4">
+                        <Button DockPanel.Dock="Right" Content="已核對" Margin="8,0,0,0"
+                                Command="{Binding DataContext.VerifyCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                CommandParameter="{Binding}" AutomationProperties.Name="已核對安全碼"/>
+                        <Button DockPanel.Dock="Right" Content="中斷" Margin="8,0,0,0"
+                                Command="{Binding DataContext.DisconnectCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                CommandParameter="{Binding}"/>
+                        <StackPanel>
+                            <TextBlock Text="{Binding Who}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding Rights, StringFormat=權限:{0}}" Foreground="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding Since, StringFormat=開始時間:{0}}" Foreground="{StaticResource Muted}" FontSize="12"/>
+                            <TextBlock Text="{Binding SecurityCode, StringFormat=安全碼:{0}}" FontSize="12" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding Trust}" Foreground="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </DockPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <!-- Status -->
+        <DockPanel Grid.Row="4" Margin="0,12,0,0">
+            <Button DockPanel.Dock="Right" Margin="8,0,0,0" Content="設定" Command="{Binding SettingsCommand}"/>
+            <Button DockPanel.Dock="Right" Margin="8,0,0,0" Content="更換金鑰" Command="{Binding RotateKeyCommand}" AutomationProperties.Name="更換金鑰"/>
+            <TextBlock Text="{Binding Status}" Foreground="{StaticResource Muted}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+        </DockPanel>
+    </Grid>
+</Window>

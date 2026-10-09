@@ -2,9 +2,9 @@
 
 > ## 結論:**NOT RELEASE READY(尚未達到可出貨)**
 >
-> 通訊、安全與工作階段的**基礎層**已完成、經過安全審查與完整測試(557 個測試全部通過)。
-> 但產品本身還不能交給使用者:**沒有使用者介面、Agent 只是空殼、沒有真實的螢幕擷取/輸入注入/剪貼簿後端、沒有真實的影片編碼器、P2P 直連未實作、沒有資料庫持久化。**
-> 另有一個已知的 P1 安全風險(對方公鑰由伺服器提供,沒有帶外驗證)。
+> 通訊、安全與工作階段的**基礎層**已完成、經過安全審查與完整測試(1123 個測試全部通過)。
+> 但產品本身還不能交給使用者:**使用者介面只有首版(WPF,Windows)、Agent 只有無介面的白名單版本、Windows、Linux(X11)、macOS 後端都是首版(Linux 純 Wayland 不能擷取,macOS 沒有在真實 Mac 上跑過)、有損編碼只有 JPEG 分塊(沒有動態補償,整屏連續變動時約 5 fps)、P2P 直連未實作。**
+> 另有已知的 P1 安全風險:前向保密、設備撤銷、外部審查;對方公鑰的首次接觸仍是首次使用即信任(之後的金鑰變更會被擋下,雙方可核對安全碼)。
 >
 > 只有出貨完成定義(§2)的全部條件成立才能標記 RELEASE READY,目前**不成立**,所以不標記。
 
@@ -21,7 +21,7 @@
 | Acceptance Tests PASS | 🟡 | 7 個驗收測試通過(真實伺服器 + Relay + 加密 + 五個通道 + 權限 + 恢復 + 稽核)。**NAT 驗收只是邏輯模擬,沒有真實 NAT**;沒有真實 OS 後端、沒有真實網路 |
 | Documentation Complete | ✅ | README、ARCHITECTURE、SECURITY、PROTOCOL、NETWORKING、DEPLOYMENT、TESTING、TROUBLESHOOTING、THREAT_MODEL + CONFIGURATION、PERFORMANCE、本文件。文件內容已對照程式碼與實測核對 |
 | Installer Complete | 🟡 | 伺服器:發布腳本、Windows 服務與 Linux systemd 安裝腳本、Dockerfile/compose。**沒有圖形安裝程式(MSI/EXE)、沒有客戶端/Agent 安裝程式、套件未簽章**;安裝腳本只做了乾跑驗證,Docker 未實際建置(見 DEPLOYMENT.md「驗證狀態」) |
-| Configuration Documentation Complete | ✅ | CONFIGURATION.md;預設值與 `appsettings.json` 一致有測試;不合法設定使伺服器啟動失敗有測試。**客戶端沒有設定檔**(Agent 未實作),規劃中的 yaml 設定範例尚未提供 |
+| Configuration Documentation Complete | ✅ | CONFIGURATION.md;預設值與 `appsettings.json` 一致有測試;不合法設定使伺服器啟動失敗有測試。Agent 有 `Agent:*` 設定(見 CONFIGURATION.md);一般使用者用的客戶端設定與規劃中的 yaml 範例尚未提供 |
 
 ## 2. 出貨完成定義(22 項)
 
@@ -32,8 +32,8 @@
 | 3 | Signaling | 🟡 | 伺服器端完整。**客戶端 `ISignalingClient` 只涵蓋部分操作**(註冊、請求、回應、恢復、心跳);OTP、信任設備、ICE 候選、回報連線模式、要求 Relay token 尚未包進客戶端類別(hub 端都有且有測試) |
 | 4 | NAT traversal | ❌ | 只有候選位址收集。**ICE 連線檢查與 SDP 交換未實作**,`TryEstablishDirectAsync` 永遠回傳 `false`;沒有 TURN;沒有真實 NAT 測試 |
 | 5 | Relay fallback | ✅ | 伺服器與客戶端傳輸完整,有端到端測試。**目前是唯一的傳輸路徑** |
-| 6 | End-to-end encryption | 🟡 | `SecureChannel` 完整(AES-256-GCM、序號、AAD、重放視窗、金鑰紀元)。**缺:前向保密、對方公鑰的帶外驗證;也沒有 Session 協調器強制所有通道都經過它** |
-| 7 | Remote screen | 🟡 | 串流管線、差分編碼、適應性畫質控制器完整並有測試。**沒有真實擷取後端,沒有有損影片編碼器**;適應性畫質控制器沒有接上實際的網路量測 |
+| 6 | End-to-end encryption | 🟡 | `SecureChannel` 完整(AES-256-GCM、序號、AAD、重放視窗、金鑰紀元)。**缺:前向保密;對方公鑰已釘選且可用安全碼核對,但首次接觸仍是首次使用即信任;也沒有 Session 協調器強制所有通道都經過它** |
+| 7 | Remote screen | 🟡 | 串流管線、差分編碼、JPEG 分塊有損編碼、依實測碼率與送出延遲的碼率控制、Windows GDI 擷取都有測試與真實驗證。**沒有動態補償的影片編碼器**(整屏連續變動時只有約 5 fps);沒有 Linux/macOS 擷取;滑鼠游標不在畫面內 |
 | 8 | Mouse control | 🟡 | 協定、驗證、權限、重放、限流完整。**沒有 OS 注入實作** |
 | 9 | Keyboard control | 🟡 | 同上 |
 | 10 | Clipboard | 🟡 | 協定、策略、權限完整。**沒有 OS 剪貼簿實作**;沒有檔案型剪貼簿 |
@@ -41,13 +41,13 @@
 | 12 | Permission model | ✅ | 九個權限位元,逐訊息強制,撤銷即時生效 |
 | 13 | Audit logging | 🟡 | 事件齊全(含授予的權限)。**只在記憶體、不持久、不防竄改,沒有查詢介面** |
 | 14 | Rate limiting | ✅ | 註冊、OTP、連線請求、未知查詢、Relay、恢復等都有限流與鎖定。(單行程記憶體;反向代理需正確設定 `ForwardedHeaders`) |
-| 15 | Reconnect | 🟡 | 心跳、退避、網路變更偵測、`ConnectionSupervisor`、伺服器端 Session 恢復、客戶端自動重新註冊與恢復都有測試;驗收測試手動串接並驗證整條路徑。**沒有 Agent 把它們串成自動流程** |
+| 15 | Reconnect | 🟡 | 心跳、退避、網路變更偵測、`ConnectionSupervisor`、伺服器端 Session 恢復、客戶端自動重新註冊與恢復都有測試;驗收測試手動串接並驗證整條路徑。**`RemoteMeshClient` 的斷線自動重連已完成**:Relay 連線被切斷、或整台電腦斷網再恢復,兩端都會用新的金鑰紀元重建連線,畫面與滑鼠操作恢復,Session 不中斷;重連不成(伺服器重啟、超過時限、對方已結束)就明確結束並說明原因。已用真實進程驗證(真實伺服器 + Agent + 可切斷的網路代理)。**限制:** 斷線當下傳到一半的檔案會失敗,需重新傳(傳輸本身可續傳);斷線期間的滑鼠鍵盤事件被丟棄(過期的操作比沒有更糟);伺服器重啟不保留連線 |
 | 16 | Security review | ✅ | Phase 12 內部審查,9 項漏洞已修正,Phase 13/14 又修正多項(見 CHANGELOG)。**沒有外部滲透測試或第三方稽核** |
 | 17 | NAT acceptance test | 🟡 | 五種情境以邏輯模擬通過;**未在真實 NAT 後驗證** |
 | 18 | Performance test | ✅ | 行程內量測完整(PERFORMANCE.md);**沒有真實網路、真實擷取/編碼、長時間 soak** |
 | 19 | Installer | 🟡 | 見 §1 |
 | 20 | Documentation | ✅ | 見 §1 |
-| 21 | All automated tests passing | ✅ | 557/557;完整執行連續 3 次全過(重構後曾有 1 次整套並行時單一 Integration 測試失敗,未能重現,原因未確認) |
+| 21 | All automated tests passing | ✅ | 1123/1123;完整執行連續 3 次全過(重構後曾有 1 次整套並行時單一 Integration 測試失敗,未能重現,原因未確認) |
 | 22 | No known P0/P1 security issue | ❌ | 有已知 P1:**對方公鑰由伺服器提供,惡意或被入侵的伺服器可做中間人**(§3);另有 P2 項目 |
 
 統計:✅ 10 · 🟡 10 · ❌ 2(另有 Phase 14 確認項目中 Installer、Acceptance 為 🟡)。
@@ -55,16 +55,17 @@
 ## 3. 阻擋項目(依優先順序)
 
 ### P0 — 產品無法運作
-1. **使用者介面**:`RemoteDesktop.UI` 專案不存在。需要連線畫面、核准對話框(顯示「誰要連線」與要授予的權限)、OTP 顯示、設定、傳輸進度。
-2. **Agent 與應用程式組裝**:`AgentWorker` 是 `Task.Delay(Timeout.Infinite)`。需要把註冊、接受請求、建立 Relay、導出金鑰、開啟五個通道、啟動各主機元件、重連與優雅斷線串成完整流程(驗收測試證明這條路徑可行,但那是測試程式碼)。**組裝時必須強制所有通道經過 `SecureTransport`,且每次恢復使用新的金鑰紀元。**
-3. **OS 後端**:螢幕擷取(Windows Desktop Duplication/WGC;Linux PipeWire/X11)、輸入注入(`SendInput`;uinput/XTest)、剪貼簿。
-4. **真實影片編碼器**:H.264/VP9/AV1(原生函式庫或硬體編碼)。目前無損參考編碼器在一般操作下約 7 Mbit/s(720p@20),全螢幕影片 600+ Mbit/s,遠超各檔位預算。
+1. **使用者介面**:**首版已完成**(Windows 為 WPF;Linux/macOS 為 Avalonia,功能相同,在 Windows 與 Linux/Xvfb 上驗證過,macOS 未在 Mac 上跑過):主視窗(ID、一次性密碼、連線、被控制名單與中斷、設定)、核准對話框(顯示對方 ID、可選權限、60 秒倒數、請求被撤回時自動關閉)、遠端畫面視窗(滑鼠鍵盤轉發、剪貼簿、檔案上傳/下載、依授權自動停用按鈕)、單一 exe 打包。真實進程驗證過 UI→UI 的完整流程。**尚缺:** ① 短 ID(9 位數字)已完成,但伺服器沒有持久化,重啟後是「先到先得」地重新申請(THREAT_MODEL §4 #4b);② 沒有簽章與安裝程式(SmartScreen 會警告);③ 只擷取/控制主螢幕,沒有多螢幕選擇;④ 傳輸進度只有文字;⑤ 沒有系統匣/開機自動啟動;⑥ 介面只有繁體中文;⑦ 只設了無障礙名稱,沒有螢幕閱讀器的完整測試。
+2. **應用程式組裝**:**核心已完成**——`RemoteDesktop.Client` 的 `RemoteMeshClient` 同時扮演被控端與控制端(註冊、核准、取得對方公鑰、Relay、端到端加密、五個通道,所有通道都經 `SecureTransport`),並有真實伺服器 + 兩個真實客戶端的端到端測試,以及真實進程的冒煙驗證(真實桌面 1600x900、20 fps)。`Agent` 是無介面的被控端,只接受設定檔白名單內的設備。**尚缺:** Agent 必須在使用者的登入工作階段執行(Windows 服務在 session 0,看不到使用者螢幕);沒有「自己輸入對方 ID 連線」的介面(見第 1 項)。
+3. **OS 後端**:**Windows、Linux(X11)、macOS 都有首版**(詳見 [PLATFORMS.md](PLATFORMS.md)):Windows 為 GDI 擷取、`SendInput`、Win32 剪貼簿;Linux 為 `XGetImage`、XTEST、`xclip`/`xsel`/`wl-clipboard`,在 Xvfb 上以真實進程驗證(畫面顏色、滑鼠位置、按鍵、雙向剪貼簿);macOS 為 CoreGraphics、CGEvent、`pbcopy`/`pbpaste`。**仍缺**:**macOS 沒有在真實 Mac 上跑過**(只有邏輯測試;擷取、事件注入、權限提示、`.app` 能否開啟都未驗證);**Linux 純 Wayland 工作階段不能擷取或控制**(需要 xdg-desktop-portal + PipeWire 與 libei);Linux 只在 Xvfb 驗證,沒有在實體桌面環境(GNOME/KDE Xorg)上驗證;macOS 的擷取用已過時的 `CGDisplayCreateImage`(新版 macOS 應改 ScreenCaptureKit)且只擷取主螢幕;各平台都沒有滑鼠游標、剪貼簿不支援圖片、不支援 Windows 的 UAC/鎖定畫面等安全桌面、Windows GDI 擷取效能未量測。
+4. **真實影片編碼器**:**部分完成**——已有 JPEG 分塊有損編碼加碼率控制(Windows,見 PERFORMANCE.md §3.3b):靜止桌面幾乎不耗頻寬,一般操作很省,整屏連續變動時會在預算內變軟、降到約 5 fps(5 Mbit/s 預算)。**仍缺有動態補償的影片編碼器**(H.264/VP9/AV1,原生函式庫或硬體編碼)才能讓整屏連續變動也流暢。
 5. **P2P 直連**:ICE 連線檢查、SDP 交換、`IDirectTransportFactory` 實作;否則所有流量都經過 Relay(成本與擴展性)。
-6. **持久化**:`Server.Persistence`(PostgreSQL)為空。目前伺服器只能單實例、重啟遺失所有 Session、稽核不持久。多實例還需要共享的限流/Token/在線狀態。
+6. **持久化**:**大致完成(單實例)**——設定 `RemoteMesh:Database:ConnectionString` 後,設備與公鑰、短 ID 歸屬、信任設備、稽核紀錄、**Session 與恢復 token(只存雜湊)**存進 PostgreSQL。重啟後:短 ID 不會被搶走;連線中的 Session 以「已暫停」狀態回來,雙方客戶端用手上的恢復 token 自動接回(用真實伺服器 + Agent 驗證:殺掉伺服器、6 秒後重啟,檢視端約 1 秒內接回,Session 沒有結束);沒回答的核准請求會失敗;恢復時限從重啟那一刻重新起算。對真實 PostgreSQL 17 測試。**仍缺**:限流、鎖定計數、OTP、在線狀態還在記憶體(重啟會重置暴力破解的鎖定計數),因此仍只能單實例,資料庫是持久副本、不是多實例共用的仲裁者;重啟的空窗期間(伺服器沒起來時)連線中斷,恢復靠客戶端的重試;資料表由 EF 遷移建立與升級(開發期間用舊版建立的資料庫需要刪掉重建);沒有備份/還原與遷移失敗時的回復流程與稽核防竄改(寫入後可被有權限的管理者修改)。
 
 ### P1 — 安全
-7. **對方公鑰缺乏帶外驗證**:被入侵的伺服器可替換公鑰而做中間人。需要在核准畫面顯示金鑰指紋,或配對時帶外交換。
-8. **設備撤銷與金鑰輪替**:首次註冊釘住公鑰後,換機或私鑰外洩無法重新註冊同一個 DeviceId。
+6b. **控制端自己按下被控端核准按鈕**:**已緩解**——只要有核准提示在等待,所有已連線 Session 的輸入注入都會暫停(丟棄,不排隊;變異檢查確認測試有效)。殘留:提示出現前的瞬間已送出的事件、以及非本程式的其他提示視窗(例如 UAC)不在此保護範圍。
+7. **對方公鑰的帶外驗證**:**大致完成**——客戶端把見過的設備金鑰釘選在本機,金鑰之後被換會在金鑰協商前中止(雙方都拒絕,畫面說明原因);兩邊畫面顯示相同的安全碼(六組五位數字)供念出來核對,核對後會記住。**仍缺**:第一次接觸時若伺服器就換金鑰且沒人核對,抓不到;核准提示在連線前還看不到安全碼(金鑰要核准後才取得);沒有「未核對前限制權限」的強制流程。
+8. **金鑰輪替與設備撤銷**:**金鑰輪替已完成**——裝置可以換成新的金鑰:舊金鑰與新金鑰都簽署同一份聲明,伺服器驗證後原子地換掉金鑰並記錄歷史(最多 100 次、每小時 3 次、有 Session 時不可換);之前釘選過它的客戶端用裝置自己的簽章沿著歷史驗證到新金鑰,自動跟上、保留「已核對」狀態、安全碼改變,伺服器偽造不了(沒有私鑰)。換到一半當機會在下次啟動時自行收尾。UI 有「更換金鑰」按鈕。**仍缺**:私鑰已經外洩時,偷到私鑰的人也能輪替(輪替證明的是「擁有舊金鑰」,不是「是本人」);**沒有撤銷**(沒有帳號/擁有者的概念,所以沒有人能代替遺失私鑰的裝置宣告它作廢;目前的做法是換新 DeviceId,也就是重新安裝);被控端也沒有黑名單。
 9. **前向保密**:改用成熟協定的臨時金鑰(Noise 或 TLS 1.3 雙向認證),**不要自行設計**。
 10. **外部安全審查**:第三方程式碼稽核與滲透測試。
 
@@ -79,16 +80,20 @@
 
 | 專案 | 通過 | | 專案 | 通過 |
 |---|---|---|---|---|
-| Integration | 209 | | Performance | 23 |
-| Transport | 77 | | Core | 21 |
+| Integration | 222 | | Performance | 23 |
+| Server.Persistence(需要 PostgreSQL,見 TESTING.md) | 41 | | | |
+| Transport | 78 | | Core | 21 |
 | FileTransfer | 68 | | Nat | 10 |
-| Security | 45 | | Protocol | 2 |
-| Streaming | 44 | | Signaling | 2 |
-| Input | 26 | | Clipboard | 25 |
-| Server.Application | 5 | | | |
-| **合計** | **557** | | **失敗** | **0** |
+| Security | 45 | | Protocol | 24 |
+| Streaming | 108 | | Signaling | 2 |
+| Input | 26 | | Clipboard | 26 |
+| Server.Application | 24 | | Platform.Windows | 52 |
+| Client | 66 | | Agent | 21 |
+| UI | 69 | | UI.Avalonia | 47 |
+| Platform(跨平台,含 Linux 真實 X11 測試) | 150 | | | |
+| **合計** | **1123** | | **失敗** | **0** |
 
-- 完整執行約 65–70 秒(含效能測試約 55 秒)。
+- 完整執行約 1–2 分鐘(含效能測試與約 14 秒的碼率控制閉環測試)。
 - 建置:0 警告、0 錯誤。
 - 已知的測試涵蓋缺口見 [TESTING.md](TESTING.md) §4。
 
@@ -102,10 +107,10 @@
 
 ## 6. 建議的下一步
 
-1. 決定 P1 安全設計(金鑰指紋驗證、設備撤銷),因為它們會改變註冊與核准的協定,越早決定越便宜。
-2. 實作 Agent 組裝與 UI 的最小可用版本(Windows 優先),把驗收測試的流程搬進產品。
+1. ~~金鑰指紋驗證~~、~~金鑰輪替~~(已完成);決定裝置撤銷(需要擁有者/帳號概念)與前向保密的設計。
+2. ~~Agent 組裝~~、~~首版 UI~~(已完成)→ ~~短 ID~~、~~傳輸層自動重連~~、~~PostgreSQL 持久化(身分、稽核、Session、token)~~(已完成)→ 接著做:動態補償的影片編碼器、簽章與安裝程式。
 3. 接上 Windows 的螢幕擷取、輸入注入、剪貼簿後端。
 4. 整合真實影片編碼器。
-5. PostgreSQL 持久化與稽核。
+5. ~~PostgreSQL 持久化與遷移~~(已完成)。
 6. ICE 直連。
 7. 外部安全審查,然後才重新評估是否 RELEASE READY。

@@ -112,19 +112,21 @@ Disconnected → Connecting → Negotiating → Authenticating → Authorizing �
 4. 每個訊息:`[序號 8][nonce 12][tag 16][密文]`,AAD = 通道類型 ‖ 方向 ‖ 序號;接收端以 64 項滑動視窗拒絕重放,驗證通過後才消耗序號。
 5. 全部使用 .NET BCL 的成熟元件,沒有自創演算法、金鑰交換或 MAC。
 
-**已知限制**:金鑰是靜態 ECDH(沒有前向保密),且對方公鑰由伺服器提供、沒有帶外驗證。見 [THREAT_MODEL.md](THREAT_MODEL.md) §4。
+**已知限制**:金鑰是靜態 ECDH(沒有前向保密);對方公鑰由伺服器提供,客戶端會釘選見過的金鑰並提供安全碼核對,但第一次接觸仍是首次使用即信任。見 [THREAT_MODEL.md](THREAT_MODEL.md) §4。
 
 ## 6. 擴充點(尚待實作的真實後端)
 
 | 介面 | 現況 | 要接上的東西 |
 |---|---|---|
-| `IScreenCapture` | `SyntheticScreenCapture`(測試圖樣) | Windows Desktop Duplication / WGC;Linux PipeWire / X11 |
-| `IInputController` | 測試用記錄器 | Windows `SendInput`;Linux uinput / XTest |
+| `IScreenCapture` | `SyntheticScreenCapture`(測試圖樣);Windows GDI、Linux X11、macOS CoreGraphics(見 PLATFORMS.md) | Windows Desktop Duplication / WGC;Linux PipeWire(Wayland);macOS ScreenCaptureKit |
+| `IInputController` | 測試用記錄器;Windows `SendInput`、Linux XTEST、macOS CGEvent | Linux libei(Wayland) |
 | `IClipboardManager` | `InMemoryClipboardManager` | 作業系統剪貼簿 |
 | `IVideoEncoder`/`IVideoDecoder` | Deflate、TileDelta(無損參考) | H.264 / VP9 / AV1(原生函式庫或硬體) |
 | `IDirectTransportFactory` | 無(模擬用 `LoopbackDirectTransportFactory` 僅供測試) | 以 ICE 選出的候選配對建立 P2P 傳輸 |
 | `IFrameRenderer` | 測試用收集器 | UI 繪製(注意:畫面像素是租用的,只在呼叫期間有效) |
-| `IDeviceRegistry`、`ISessionManager`、`ITrustedDeviceStore`、`IAuditLog`、`IPresenceService`、`IRateLimiter` | 記憶體實作 | PostgreSQL / 共享快取(多實例必須) |
+| `IDeviceRegistry`、`IShortIdDirectory`、`ITrustedDeviceStore`、`IAuditLog` | 記憶體實作;設定 `RemoteMesh:Database:ConnectionString` 後換成 PostgreSQL(`Server.Persistence`) | — |
+| `ISessionManager`、`ISessionTokenService` | 記憶體實作;設定資料庫後換成寫入式包裝(記憶體仍是仲裁者,每次變更寫進 PostgreSQL,啟動時載回) | 多實例需要在資料庫裡仲裁的管理器 |
+| `IPresenceService`、`IRateLimiter`、OTP 服務 | 記憶體實作 | 共享快取(多實例必須) |
 
 ## 7. 重要設計決定
 

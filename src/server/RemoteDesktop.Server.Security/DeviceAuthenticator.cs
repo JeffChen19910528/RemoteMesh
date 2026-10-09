@@ -42,7 +42,7 @@ public sealed class DeviceAuthenticator : IDeviceAuthenticator
         if (!_challenges.TryRemove(connectionId, out var entry) || entry.Expires < _clock.GetUtcNow())
             return DeviceAuthResult.NoChallenge;
 
-        if (claimedPublicKey.Length is 0 or > MaxPublicKeyBytes || !IsValidP256PublicKey(claimedPublicKey))
+        if (claimedPublicKey.Length is 0 or > MaxPublicKeyBytes || !KeyChecks.IsValidP256PublicKey(claimedPublicKey))
             return DeviceAuthResult.InvalidKey;
 
         var pinned = await _registry.GetPublicKeyAsync(deviceId, ct);
@@ -64,19 +64,4 @@ public sealed class DeviceAuthenticator : IDeviceAuthenticator
     }
 
     public void Forget(string connectionId) => _challenges.TryRemove(connectionId, out _);
-
-    private static bool IsValidP256PublicKey(byte[] spki)
-    {
-        try
-        {
-            using var key = ECDsa.Create();
-            key.ImportSubjectPublicKeyInfo(spki, out var read);
-            if (read != spki.Length) return false; // trailing garbage
-            var curve = key.ExportParameters(false).Curve;
-            return curve.Oid?.Value == ECCurve.NamedCurves.nistP256.Oid.Value
-                || curve.Oid?.FriendlyName is "nistP256" or "ECDSA_P256";
-        }
-        catch (CryptographicException) { return false; }
-        catch (ArgumentException) { return false; }
-    }
 }

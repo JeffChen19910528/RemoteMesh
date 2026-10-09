@@ -114,7 +114,13 @@ public sealed class ClipboardHost
         }
         else
         {
-            await _clipboard.SetImageAsync(msg.Payload, ct);
+            try { await _clipboard.SetImageAsync(msg.Payload, ct); }
+            catch (NotSupportedException)
+            {
+                // This host cannot take images: refuse instead of letting the exception end the channel.
+                await ReplyDenied(msg.Type, msg.Format, ClipboardResult.PolicyDenied, ct);
+                return;
+            }
         }
 
         _onDecision?.Invoke(msg.Type, ClipboardResult.Ok);

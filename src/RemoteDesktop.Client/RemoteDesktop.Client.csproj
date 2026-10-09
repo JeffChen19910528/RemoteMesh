@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="RemoteDesktop.Client.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RemoteDesktop.Core\RemoteDesktop.Core.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Protocol\RemoteDesktop.Protocol.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Security\RemoteDesktop.Security.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Signaling\RemoteDesktop.Signaling.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Transport\RemoteDesktop.Transport.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Relay\RemoteDesktop.Relay.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Capture\RemoteDesktop.Capture.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Encoding\RemoteDesktop.Encoding.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Streaming\RemoteDesktop.Streaming.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Input\RemoteDesktop.Input.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.Clipboard\RemoteDesktop.Clipboard.csproj" />
+    <ProjectReference Include="..\RemoteDesktop.FileTransfer\RemoteDesktop.FileTransfer.csproj" />
+  </ItemGroup>
+
+</Project>
