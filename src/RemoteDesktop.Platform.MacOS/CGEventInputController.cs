@@ -14,11 +14,25 @@ public sealed class CGEventInputController : IInputController
     private const int LeftDown = 1, LeftUp = 2, RightDown = 3, RightUp = 4, Moved = 5, LeftDragged = 6, RightDragged = 7,
         OtherDown = 25, OtherUp = 26, OtherDragged = 27;
 
+    /// <summary>
+    /// The maximum time between two clicks of the same button at the same position that the system still counts as a
+    /// double-click. This is a safe default; the actual system value varies but is typically 500 ms.
+    /// </summary>
+    internal static readonly TimeSpan DoubleClickInterval = TimeSpan.FromMilliseconds(500);
+
+    /// <summary>The maximum distance in display points between two clicks that are still counted as a double-click.</summary>
+    internal const double DoubleClickDistance = 5.0;
+
     private readonly object _lock = new();
-    private readonly double _width, _height;
     private ulong _flags;          // modifier keys currently held
     private int _buttonsHeld;      // bit 0 left, 1 right, 2 other: moves while a button is held are drags
     private long _failed;
+
+    // Double-click tracking: remember the last button-down so consecutive quick clicks set the right click count.
+    private int _lastClickButton = -1;
+    private int _clickCount;
+    private DateTimeOffset _lastClickTime;
+    private double _lastClickX, _lastClickY;
 
     /// <summary>
     /// When true a Windows Ctrl key acts as the Mac Command key (so Ctrl+C copies), the way people expect when they
@@ -29,12 +43,12 @@ public sealed class CGEventInputController : IInputController
     public CGEventInputController()
     {
         if (!OperatingSystem.IsMacOS()) throw new PlatformNotSupportedException("The CGEvent backend only runs on macOS.");
-        var bounds = MacNative.CGDisplayBounds(MacNative.CGMainDisplayID());
-        _width = bounds.Width;
-        _height = bounds.Height;
     }
 
     public long FailedInjections => Interlocked.Read(ref _failed);
+
+    /// <summary>The click count that will be set on the next mouse-up event (1 = single, 2 = double, …). Exposed for testing.</summary>
+    internal int ClickCount => _clickCount;
 
     public Task InjectAsync(InputEvent e, CancellationToken ct = default)
     {
@@ -43,7 +57,7 @@ public sealed class CGEventInputController : IInputController
             switch (e.EventType)
             {
                 case InputEventType.MouseMove:
-                    PostMouse(MoveType(), e, button: ButtonForDrag());
+                    PostMouse(MoveType(), e, button: ButtonForDrag(), clickCount: 0);
                     break;
 
                 case InputEventType.MouseButtonDown:
@@ -54,7 +68,8 @@ public sealed class CGEventInputController : IInputController
                     var down = e.EventType == InputEventType.MouseButtonDown;
                     var type = button switch { 0 => down ? LeftDown : LeftUp, 1 => down ? RightDown : RightUp, _ => down ? OtherDown : OtherUp };
                     _buttonsHeld = down ? _buttonsHeld | (1 << button) : _buttonsHeld & ~(1 << button);
-                    PostMouse(type, e, button);
+                    if (down) UpdateClickCount(button, e);
+                    PostMouse(type, e, button, clickCount: _clickCount);
                     break;
                 }
 
@@ -85,6 +100,32 @@ public sealed class CGEventInputController : IInputController
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Tracks consecutive clicks to compute the click count (1, 2, 3, …). Two clicks count as a double-click when
+    /// they hit the same button within <see cref="DoubleClickInterval"/> and land within <see cref="DoubleClickDistance"/>
+    /// display points of each other. Applications (e.g. Finder) use this count to distinguish double-click from single.
+    /// </summary>
+    internal void UpdateClickCount(int button, InputEvent e)
+    {
+        var bounds = GetDisplayBounds();
+        var x = MacKeyMap.ToPoint(e.X, bounds.Width);
+        var y = MacKeyMap.ToPoint(e.Y, bounds.Height);
+        var now = DateTimeOffset.UtcNow;
+
+        if (button == _lastClickButton
+            && now - _lastClickTime <= DoubleClickInterval
+            && Math.Abs(x - _lastClickX) <= DoubleClickDistance
+            && Math.Abs(y - _lastClickY) <= DoubleClickDistance)
+            _clickCount++;
+        else
+            _clickCount = 1;
+
+        _lastClickButton = button;
+        _lastClickTime = now;
+        _lastClickX = x;
+        _lastClickY = y;
+    }
+
     private int KeyCodeFor(int vk)
     {
         var code = MacKeyMap.ToKeyCode(vk);
@@ -97,16 +138,29 @@ public sealed class CGEventInputController : IInputController
 
     private int ButtonForDrag() => (_buttonsHeld & 1) != 0 ? 0 : (_buttonsHeld & 2) != 0 ? 1 : (_buttonsHeld & 4) != 0 ? 2 : 0;
 
-    private void PostMouse(int type, InputEvent e, int button)
+    private void PostMouse(int type, InputEvent e, int button, int clickCount)
     {
-        var point = new MacNative.CGPoint(MacKeyMap.ToPoint(e.X, _width), MacKeyMap.ToPoint(e.Y, _height));
+        var bounds = GetDisplayBounds();
+        var point = new MacNative.CGPoint(MacKeyMap.ToPoint(e.X, bounds.Width), MacKeyMap.ToPoint(e.Y, bounds.Height));
         var evt = MacNative.CGEventCreateMouseEvent(IntPtr.Zero, type, point, button);
         if (evt != IntPtr.Zero)
         {
             MacNative.CGEventSetFlags(evt, _flags);
-            if (type is LeftDown or RightDown or OtherDown) MacNative.CGEventSetIntegerValueField(evt, MacNative.kCGMouseEventClickState, 1);
+            if (type is LeftDown or RightDown or OtherDown or LeftUp or RightUp or OtherUp)
+                MacNative.CGEventSetIntegerValueField(evt, MacNative.kCGMouseEventClickState, clickCount > 0 ? clickCount : 1);
         }
         Post(evt);
+    }
+
+    /// <summary>
+    /// Reads the current display bounds on every call so that resolution changes and external-monitor
+    /// reconfigurations are picked up without restarting the session.
+    /// </summary>
+    private static MacNative.CGRect GetDisplayBounds()
+    {
+        var b = MacNative.CGDisplayBounds(MacNative.CGMainDisplayID());
+        // Guard against a zero-size display (e.g. during sleep) so coordinate math stays defined.
+        return new MacNative.CGRect { X = b.X, Y = b.Y, Width = b.Width > 0 ? b.Width : 1, Height = b.Height > 0 ? b.Height : 1 };
     }
 
     private void Post(IntPtr evt)

@@ -17,7 +17,7 @@ public class CommandClipboardManager : IClipboardManager
 
     public sealed record Tool(string ReadFile, string[] ReadArgs, string WriteFile, string[] WriteArgs);
 
-    private readonly ICommandRunner _runner;
+    protected readonly ICommandRunner _runner;
     private readonly Tool? _tool;
     private readonly string _installHint;
 
@@ -54,8 +54,8 @@ public class CommandClipboardManager : IClipboardManager
         if (result.TimedOut || result.ExitCode != 0) throw new IOException("The clipboard tool did not accept the text.");
     }
 
-    public Task<byte[]?> GetImageAsync(CancellationToken ct = default) => Task.FromResult<byte[]?>(null);
+    public virtual Task<byte[]?> GetImageAsync(CancellationToken ct = default) => Task.FromResult<byte[]?>(null);
 
-    public Task SetImageAsync(byte[] imageData, CancellationToken ct = default) =>
+    public virtual Task SetImageAsync(byte[] imageData, CancellationToken ct = default) =>
         throw new NotSupportedException("Image clipboard is not supported yet.");
 }

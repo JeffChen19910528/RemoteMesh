@@ -198,12 +198,98 @@ public sealed class LinuxClipboardLogicTests
     }
 
     [Fact]
-    public async Task ImagesAreNotSupportedYet_AndSharingStartsDisabled()
+    public void SharingStartsDisabled() =>
+        Assert.Equal(ClipboardPolicy.Disabled, new LinuxClipboardManager(new FakeRunner("xclip"), wayland: false).Policy);
+
+    [Fact]
+    public async Task Image_ReadUsesXclipWithPngMimeType_OnX11()
     {
-        var board = new LinuxClipboardManager(new FakeRunner("xclip"), wayland: false);
-        Assert.Equal(ClipboardPolicy.Disabled, board.Policy);
+        var png = new byte[] { 137, 80, 78, 71 }; // PNG header
+        var runner = new FakeRunner("xclip") { Output = png };
+        var board = new LinuxClipboardManager(runner, wayland: false);
+
+        var result = await board.GetImageAsync();
+
+        Assert.Equal(png, result);
+        var call = Assert.Single(runner.Calls);
+        Assert.Equal("xclip", call.File);
+        Assert.Contains("-t", call.Args);
+        Assert.Contains("image/png", call.Args);
+    }
+
+    [Fact]
+    public async Task Image_WriteUsesXclipWithPngMimeType_OnX11()
+    {
+        var png = new byte[] { 137, 80, 78, 71, 1, 2, 3 };
+        var runner = new FakeRunner("xclip");
+        var board = new LinuxClipboardManager(runner, wayland: false);
+
+        await board.SetImageAsync(png);
+
+        var call = Assert.Single(runner.Calls);
+        Assert.Equal("xclip", call.File);
+        Assert.Contains("-t", call.Args);
+        Assert.Contains("image/png", call.Args);
+        Assert.Contains("-in", call.Args);
+        Assert.Equal(png, call.Input);
+    }
+
+    [Fact]
+    public async Task Image_ReadUsesWlPasteWithPngType_OnWayland()
+    {
+        var png = new byte[] { 137, 80, 78, 71 };
+        var runner = new FakeRunner("wl-paste", "wl-copy") { Output = png };
+        var board = new LinuxClipboardManager(runner, wayland: true);
+
+        var result = await board.GetImageAsync();
+
+        Assert.Equal(png, result);
+        var call = Assert.Single(runner.Calls);
+        Assert.Equal("wl-paste", call.File);
+        Assert.Contains("image/png", call.Args);
+    }
+
+    [Fact]
+    public async Task Image_WriteUsesWlCopyWithPngType_OnWayland()
+    {
+        var png = new byte[] { 137, 80, 78, 71, 5, 6 };
+        var runner = new FakeRunner("wl-paste", "wl-copy");
+        var board = new LinuxClipboardManager(runner, wayland: true);
+
+        await board.SetImageAsync(png);
+
+        var call = Assert.Single(runner.Calls);
+        Assert.Equal("wl-copy", call.File);
+        Assert.Contains("image/png", call.Args);
+        Assert.Equal(png, call.Input);
+    }
+
+    [Fact]
+    public async Task Image_ReadReturnsNull_WhenNoToolAvailable()
+    {
+        var board = new LinuxClipboardManager(new FakeRunner(), wayland: false);
         Assert.Null(await board.GetImageAsync());
-        await Assert.ThrowsAsync<NotSupportedException>(() => board.SetImageAsync([1]));
+    }
+
+    [Fact]
+    public async Task Image_WriteThrows_WhenNoToolAvailable()
+    {
+        var board = new LinuxClipboardManager(new FakeRunner(), wayland: false);
+        await Assert.ThrowsAsync<NotSupportedException>(() => board.SetImageAsync([137, 80, 78, 71]));
+    }
+
+    [Fact]
+    public async Task Image_ReadReturnsNull_WhenToolFails()
+    {
+        var runner = new FakeRunner("xclip") { ExitCode = 1 };
+        Assert.Null(await new LinuxClipboardManager(runner, wayland: false).GetImageAsync());
+    }
+
+    [Fact]
+    public async Task Image_ReadReturnsNull_WhenOutputIsEmpty()
+    {
+        var runner = new FakeRunner("xclip") { Output = [] };
+        Assert.Null(await new LinuxClipboardManager(runner, wayland: false).GetImageAsync());
     }
 }
 

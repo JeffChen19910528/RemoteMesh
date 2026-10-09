@@ -1,6 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <InternalsVisibleTo Include="RemoteDesktop.Security.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\RemoteDesktop.Core\RemoteDesktop.Core.csproj" />
   </ItemGroup>
 

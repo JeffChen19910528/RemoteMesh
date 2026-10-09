@@ -116,10 +116,11 @@ public static class RelayTls
             [new Oid("1.3.6.1.5.5.7.3.1"), new Oid("1.3.6.1.5.5.7.3.2")], critical: false)); // server and client authentication
         // Wide validity window: the two clocks do not have to agree, and expiry is not what protects anything here.
         using var selfSigned = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-2), DateTimeOffset.UtcNow.AddDays(2));
-        // Re-import so the platform's TLS stack can use the key. Windows SChannel cannot use an in-memory-only key, so
-        // there it goes through a key container that .NET deletes again when the certificate is disposed (when the
-        // connection ends); OpenSSL and Secure Transport can keep it in memory.
-        var flags = OperatingSystem.IsWindows() ? X509KeyStorageFlags.DefaultKeySet : X509KeyStorageFlags.EphemeralKeySet;
+        // Re-import so the platform's TLS stack can use the key.
+        //   Windows SChannel:     DefaultKeySet — the key goes into a user-profile container; .NET deletes it when the certificate is disposed.
+        //   macOS Secure Transport: DefaultKeySet — macOS does not support EphemeralKeySet; the key is held in a temporary Keychain item and removed on dispose.
+        //   Linux OpenSSL:        EphemeralKeySet — keeps the key in memory only, never written to disk.
+        var flags = OperatingSystem.IsLinux() ? X509KeyStorageFlags.EphemeralKeySet : X509KeyStorageFlags.DefaultKeySet;
         return X509CertificateLoader.LoadPkcs12(selfSigned.Export(X509ContentType.Pfx), null, flags);
     }
 }

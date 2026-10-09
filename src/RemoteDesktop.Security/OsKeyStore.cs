@@ -35,7 +35,10 @@ public sealed class OsKeyStore : IKeyStore
     {
         var path = KeyPath(deviceId);
         if (File.Exists(path))
+        {
             File.Delete(path);
+            if (OperatingSystem.IsMacOS()) MacKeychain.Delete(Path.GetFileName(path));
+        }
         return Task.CompletedTask;
     }
 
@@ -56,13 +59,21 @@ public sealed class OsKeyStore : IKeyStore
     public Task CommitPendingAsync(DeviceId deviceId, CancellationToken ct = default)
     {
         File.Move(PendingPath(deviceId), KeyPath(deviceId), overwrite: true); // one step: the old key is gone only when the new one is in place
+        // On macOS the Keychain item that wraps the file's AES key is indexed by filename; rename it so LoadAsync
+        // finds it under the new (main) name rather than the staging name.
+        if (OperatingSystem.IsMacOS())
+            MacKeychain.Rename(Path.GetFileName(PendingPath(deviceId)), Path.GetFileName(KeyPath(deviceId)));
         return Task.CompletedTask;
     }
 
     public Task DiscardPendingAsync(DeviceId deviceId, CancellationToken ct = default)
     {
         var path = PendingPath(deviceId);
-        if (File.Exists(path)) File.Delete(path);
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+            if (OperatingSystem.IsMacOS()) MacKeychain.Delete(Path.GetFileName(path));
+        }
         return Task.CompletedTask;
     }
 
@@ -73,7 +84,7 @@ public sealed class OsKeyStore : IKeyStore
             ?? throw new InvalidDataException("Key file is corrupt.");
 
         var encryptedPrivateKey = Convert.FromBase64String(stored.EncryptedPrivateKey);
-        var privateKey = UnprotectKey(encryptedPrivateKey);
+        var privateKey = UnprotectKey(encryptedPrivateKey, Path.GetFileName(path));
         var publicKey = Convert.FromBase64String(stored.PublicKey);
 
         return new DeviceKeyPair
@@ -86,7 +97,7 @@ public sealed class OsKeyStore : IKeyStore
 
     private async Task SaveAsync(string path, DeviceKeyPair keyPair, CancellationToken ct)
     {
-        var encryptedPrivateKey = ProtectKey(keyPair.PrivateKey);
+        var encryptedPrivateKey = ProtectKey(keyPair.PrivateKey, Path.GetFileName(path));
         var stored = new StoredKeyFile
         {
             EncryptedPrivateKey = Convert.ToBase64String(encryptedPrivateKey),
@@ -107,24 +118,49 @@ public sealed class OsKeyStore : IKeyStore
         RestrictFilePermissions(path); // also covers a pre-existing file that was overwritten
     }
 
-    private static byte[] ProtectKey(byte[] privateKey)
+    // Prefix that marks a blob as AES-GCM ciphertext (Keychain-key protected) rather than a legacy plaintext key.
+    private static readonly byte[] KeychainPrefix = "KCHV1:"u8.ToArray();
+
+    private static byte[] ProtectKey(byte[] privateKey, string account)
     {
         if (OperatingSystem.IsWindows())
         {
             return System.Security.Cryptography.ProtectedData.Protect(
                 privateKey, null, DataProtectionScope.CurrentUser);
         }
-        // Linux: file permissions (600) provide OS-level isolation.
-        // libsecret / kernel keyring integration is not implemented yet.
+        if (OperatingSystem.IsMacOS())
+        {
+            var ciphertext = MacKeychain.Protect(privateKey, account);
+            if (ciphertext is not null)
+            {
+                // Prepend marker so UnprotectKey knows this is Keychain-encrypted, not plaintext.
+                var tagged = new byte[KeychainPrefix.Length + ciphertext.Length];
+                KeychainPrefix.CopyTo(tagged, 0);
+                ciphertext.CopyTo(tagged, KeychainPrefix.Length);
+                return tagged;
+            }
+            // Keychain unavailable (headless / pre-login): fall through to plaintext + 0600 permissions.
+        }
+        // Linux (and macOS fallback): file permissions (0600) provide OS-level isolation.
         return privateKey;
     }
 
-    private static byte[] UnprotectKey(byte[] stored)
+    private static byte[] UnprotectKey(byte[] stored, string account)
     {
         if (OperatingSystem.IsWindows())
         {
             return System.Security.Cryptography.ProtectedData.Unprotect(
                 stored, null, DataProtectionScope.CurrentUser);
+        }
+        if (OperatingSystem.IsMacOS() && stored.AsSpan().StartsWith(KeychainPrefix))
+        {
+            var ciphertext = stored.AsSpan(KeychainPrefix.Length).ToArray();
+            var plain = MacKeychain.Unprotect(ciphertext, account);
+            if (plain is not null) return plain;
+            // Keychain key was lost (keychain reset, migrated to a new Mac): the key file is now unreadable.
+            // Propagate as an exception so the caller regenerates a fresh identity rather than silently using a
+            // corrupt key.
+            throw new CryptographicException("The macOS Keychain item that protects this device key is missing. The key file cannot be decrypted.");
         }
         return stored;
     }

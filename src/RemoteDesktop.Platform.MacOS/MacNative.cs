@@ -62,4 +62,33 @@ internal static class MacNative
     [DllImport(CoreGraphics)] public static extern void CGEventPost(int tap, IntPtr evt);
 
     public const int kCGMouseEventClickState = 1;
+
+    // ── Objective-C runtime (NSPasteboard image clipboard) ───────────────
+    private const string Objc = "/usr/lib/libobjc.dylib";
+
+    [DllImport(Objc, EntryPoint = "objc_getClass")]
+    public static extern IntPtr ObjcGetClass([MarshalAs(UnmanagedType.LPStr)] string name);
+
+    [DllImport(Objc, EntryPoint = "sel_registerName")]
+    public static extern IntPtr ObjcSel([MarshalAs(UnmanagedType.LPStr)] string name);
+
+    // objc_msgSend returning IntPtr, no additional args (e.g. generalPasteboard, bytes)
+    [DllImport(Objc, EntryPoint = "objc_msgSend")]
+    public static extern IntPtr ObjcMsg0(IntPtr self, IntPtr sel);
+
+    // objc_msgSend returning IntPtr, one IntPtr arg (e.g. dataForType:, stringWithUTF8String:)
+    [DllImport(Objc, EntryPoint = "objc_msgSend")]
+    public static extern IntPtr ObjcMsg1(IntPtr self, IntPtr sel, IntPtr a0);
+
+    // objc_msgSend returning IntPtr, two IntPtr args (e.g. setData:forType:)
+    [DllImport(Objc, EntryPoint = "objc_msgSend")]
+    public static extern IntPtr ObjcMsg2(IntPtr self, IntPtr sel, IntPtr a0, IntPtr a1);
+
+    // objc_msgSend returning IntPtr, (IntPtr bytes, nint length) — for NSData dataWithBytes:length:
+    [DllImport(Objc, EntryPoint = "objc_msgSend")]
+    public static extern IntPtr ObjcMsgBytesLen(IntPtr self, IntPtr sel, IntPtr bytes, nint length);
+
+    // objc_msgSend returning nint — for NSData.length, NSPasteboard.clearContents
+    [DllImport(Objc, EntryPoint = "objc_msgSend")]
+    public static extern nint ObjcMsgNint(IntPtr self, IntPtr sel);
 }

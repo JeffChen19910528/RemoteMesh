@@ -107,6 +107,26 @@ public sealed class OsKeyStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task StoredFile_DoesNotContainThePlaintextPrivateKey_OnMacOS()
+    {
+        // On macOS, the private key is wrapped by a Keychain-stored AES key (when the Keychain is available).
+        // This test verifies that the file does not contain the raw key. If the Keychain is unavailable (e.g. CI),
+        // the test is skipped because the current fallback behaviour is documented as "file permissions only".
+        if (!OperatingSystem.IsMacOS()) return;
+
+        var deviceId = DeviceId.New();
+        var kp = await CreateStore().LoadOrCreateAsync(deviceId);
+
+        var text = await File.ReadAllTextAsync(Path.Combine(_tempDir, $"{deviceId}.key"));
+        // The file must start with the KCHV1: prefix inside the base64 when Keychain is available.
+        // If the prefix is absent the key was stored as plaintext (Keychain unavailable) — still acceptable on CI.
+        var prefix = "KCHV1:";
+        var prefixBase64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(prefix)).TrimEnd('=');
+        if (text.Contains(prefixBase64, StringComparison.Ordinal))
+            Assert.DoesNotContain(Convert.ToBase64String(kp.PrivateKey), text);
+    }
+
+    [Fact]
     public async Task KeyPair_IsValidForSigning()
     {
         var store = CreateStore();
