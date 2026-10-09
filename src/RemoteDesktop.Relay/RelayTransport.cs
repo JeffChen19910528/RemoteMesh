@@ -26,6 +26,10 @@ public sealed class RelayTransport : ITransport
         _webSocket = webSocket;
         SessionId = sessionId;
         Mode = ConnectionMode.Relay;
+        // Every channel exists before the first message can be read: the other side may start talking the moment the
+        // connection is up, and a message for a channel that is not open yet would be thrown away.
+        foreach (var type in Enum.GetValues<ChannelType>())
+            _channels[type] = new RelayChannel(type, _webSocket, _sendLock);
         _receiveLoop = RunReceiveLoopAsync(_cts.Token);
     }
 

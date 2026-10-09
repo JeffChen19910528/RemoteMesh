@@ -56,6 +56,8 @@
 ### 2.3 MITM(中間人)
 - **防護**:傳輸層必須 TLS(非開發環境所有端點除 `/health` 外都強制 HTTPS,並送 HSTS;信令與 Relay 皆然);工作階段內容另有端到端加密,Relay 與任何路徑上的第三方只看到密文(`SecureChannel`,AES-256-GCM,金鑰由雙方設備金鑰 ECDH + HKDF 導出)。
 - **審查發現**:`ISessionCrypto` 原本未接到任何通道,Relay 實際轉送明文。**(高,已修正:新增 `SecureChannel`/`SecureTransport`)**
+- **前向保密(TLS 層)**:裝置之間經過 Relay 的連線包在平台的 TLS 裡(`RelayTls`):雙方用一次性自簽憑證(包住裝置金鑰)做雙向驗證,**只接受事先釘選的那把公鑰**(憑證只是載體,名稱與鏈的錯誤被忽略,比對的是公鑰本身);版本限 TLS 1.2/1.3,握手後檢查是 TLS 1.3 或 ECDHE 套件,否則拒絕。金鑰交換是臨時的:事後取得兩邊私鑰的人也解不開錄下的流量。Relay 看不到也改不了握手(替換金鑰會被拒絕;改動記錄會讓連線中止;重放記錄不會被當成新資料)。握手有逾時,失敗會關閉連線讓另一端看到結束,不會卡住。測試:`RelayTlsTests`(釘選、冒充、竄改、重放、明文不可見、不同連線的密文不同)、`PeerKeyEndToEndTests.TheConnectionThroughTheRelay_IsTls…`、變異檢查。
+- **殘留(TLS 層)**:TLS 1.3 的客戶端驗證發生在握手之後,被拒絕的客戶端會先看到握手完成、隨後連線被伺服器中止(伺服器不會接受它);Relay 仍看得到流量大小與時間;Windows 每條連線暫存一個金鑰容器;macOS 與 Windows 舊版的 TLS 行為沒有逐一驗證。
 - **測試**:`SecureChannelTests`、`EndToEnd_ThroughRelay_*`。
 - **殘留**:見 §4(公鑰來源與指紋驗證)。
 

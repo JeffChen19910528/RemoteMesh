@@ -48,6 +48,9 @@ internal sealed class SessionEndpoint : IAsyncDisposable
 
     public SessionId SessionId { get; }
 
+    /// <summary>The TLS version and cipher suite protecting the connection through the relay (empty before it is up).</summary>
+    public string TransportSecurity { get; private set; } = "";
+
     /// <summary>The device on the other end, as the server named it and as pinned on this machine.</summary>
     public DeviceId PeerDeviceId { get; }
 
@@ -132,7 +135,18 @@ internal sealed class SessionEndpoint : IAsyncDisposable
         var crypto = new AesGcmSessionCrypto();
         await crypto.DeriveSessionKeyAsync(SessionId, _myKeys.PrivateKey, _peerKey, SessionKeyContext.ForEpoch(epoch), ct);
 
-        var socket = await ConnectRelayAsync(_options, SessionId, _me, relayToken, ct);
+        var raw = await ConnectRelayAsync(_options, SessionId, _me, relayToken, ct);
+        // TLS between the two devices, through the relay: both prove their (pinned) device key, and the ephemeral key
+        // exchange keeps recorded traffic unreadable even if a device key leaks later. The encrypted channels below
+        // stay as they are, so a flaw in either layer does not expose the content.
+        WebSocket socket;
+        try { socket = await RelayTls.AuthenticateAsync(raw, _initiator, _myKeys, _peerKey, ct); }
+        catch
+        {
+            try { raw.Abort(); raw.Dispose(); } catch (Exception) { }
+            throw;
+        }
+        TransportSecurity = RelayTls.Describe(socket) ?? "";
         var transport = new SecureTransport(new RelayTransport(socket, SessionId), crypto, _initiator);
         try
         {

@@ -19,6 +19,9 @@ public abstract class SessionBase : IAsyncDisposable
 
     internal SessionEndpoint Endpoint { get; }
 
+    /// <summary>The TLS version and cipher suite of the connection through the relay, for example <c>Tls13 TLS_AES_256_GCM_SHA384</c>.</summary>
+    public string TransportSecurity => Endpoint.TransportSecurity;
+
     /// <summary>The device on the other end.</summary>
     public DeviceId PeerDeviceId => Endpoint.PeerDeviceId;
 

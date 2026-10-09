@@ -112,7 +112,7 @@ Disconnected → Connecting → Negotiating → Authenticating → Authorizing �
 4. 每個訊息:`[序號 8][nonce 12][tag 16][密文]`,AAD = 通道類型 ‖ 方向 ‖ 序號;接收端以 64 項滑動視窗拒絕重放,驗證通過後才消耗序號。
 5. 全部使用 .NET BCL 的成熟元件,沒有自創演算法、金鑰交換或 MAC。
 
-**已知限制**:金鑰是靜態 ECDH(沒有前向保密);對方公鑰由伺服器提供,客戶端會釘選見過的金鑰並提供安全碼核對,但第一次接觸仍是首次使用即信任。見 [THREAT_MODEL.md](THREAT_MODEL.md) §4。
+**傳輸層**:Relay WebSocket 之上先跑一層 TLS(`RelayTls`,見 THREAT_MODEL §2.3),裝置之間雙向驗證、臨時金鑰交換,TLS 內的訊息是 `[長度:4][內容]`,內容再交給下面的 `RelayTransport` 與 `SecureTransport`。**已知限制**:內層工作階段金鑰是靜態 ECDH(外層 TLS 提供前向保密);對方公鑰由伺服器提供,客戶端會釘選見過的金鑰並提供安全碼核對,但第一次接觸仍是首次使用即信任。見 [THREAT_MODEL.md](THREAT_MODEL.md) §4。
 
 ## 6. 擴充點(尚待實作的真實後端)
 

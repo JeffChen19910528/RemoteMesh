@@ -50,6 +50,7 @@ RemoteDesktop.UI.Avalonia       跨平台視窗(Windows、Linux、macOS)
 - 鍵盤:Windows 的 Ctrl 當成 Control、Windows 鍵當成 Command(`CGEventInputController.CtrlActsAsCommand` 可改成 Ctrl→Command,讓 Ctrl+C 變成複製);Windows 的 Insert 對應到 Help(Mac 沒有 Insert)。
 - `CGDisplayCreateImage` 在新版 macOS 被標為過時(建議改用 ScreenCaptureKit),目前仍可呼叫;ScreenCaptureKit 後端尚未實作。
 - 目前只擷取主螢幕。
+- 連線的 TLS 層由 .NET 在 macOS 上提供;macOS 當 TLS 伺服器(被控端)的行為需要在實機確認,不行的話握手會失敗並明確報錯,不會退回不加密。
 - **這個後端沒有在真實 Mac 上執行過**(沒有 Mac 可用)。能不依賴 Mac 驗證的部分(鍵碼表、座標與縮放數學、剪貼簿指令、權限在其他系統上的行為)有測試;擷取、事件注入、權限提示、`.app` 能否開啟必須在 Mac 上驗證。
 
 ## 怎麼驗證的(Linux)

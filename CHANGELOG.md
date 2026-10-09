@@ -4,6 +4,13 @@
 
 ## 0.1.0 — 開發中
 
+### 前向保密(TLS)
+- 兩台裝置之間經過 Relay 的連線包在平台的 TLS 裡(`RelayTls`、`TlsWebSocket`):用裝置金鑰包成的一次性自簽憑證做雙向驗證,只接受事先釘選的公鑰;臨時金鑰交換(TLS 1.3 或 ECDHE 的 TLS 1.2),握手後驗證套件;每次重連都是新的握手。沒有自行設計協定或密碼學,原本的端到端 AES-GCM 通道保留在 TLS 之內
+- 修正一個潛在的競態:`RelayTransport` 現在在讀取第一個訊息之前就建立好所有通道。對方一連上就說話時(例如檢視端的 Hello、第一個輸入事件),訊息可能在通道開啟前到達而被丟掉——這是之前偶發失敗的測試(第一個輸入事件遺失、Hello 遺失而退回無損畫面)的原因;TLS 讓握手後的第一個訊息更早到達,使它從偶發變成常見而被抓到
+- `SessionBase.TransportSecurity` 顯示協商出的 TLS 版本與套件
+- 驗證:`RelayTlsTests`(10 個)、`RelayTransportEarlyMessageTests`、端對端確認兩端都是前向保密的套件;變異檢查(接受任何金鑰、客戶端不跑 TLS,測試都會失敗);Windows(SChannel)與 Linux(OpenSSL,WSL)上的完整 Integration 與 Client 測試、Linux 真實進程(Agent + 檢視端)
+- 已知限制:macOS 的 TLS 沒有在實機驗證;內層 AES-GCM 金鑰仍來自靜態 ECDH
+
 ### Linux 與 macOS 版本
 - 新後端:`Platform.Linux`(X11 `XGetImage` 擷取、XTEST 輸入、`xclip`/`xsel`/`wl-clipboard` 剪貼簿)、`Platform.MacOS`(CoreGraphics 擷取、CGEvent 輸入、`pbcopy`/`pbpaste` 剪貼簿、權限檢查)、`Platform.Skia`(Linux/macOS 的 JPEG)、`Platform.Common`(外部工具剪貼簿與指令執行器)、`Platform`(`PlatformHost` 依系統選擇後端,Agent 與桌面程式共用)
 - 跨平台桌面程式 `RemoteDesktop.UI.Avalonia`:與 Windows 版相同的功能(ID/一次性密碼、連線、核准對話框、檢視視窗含滑鼠鍵盤剪貼簿檔案、重新連線橫幅、安全碼核對、被控名單、更換金鑰、設定);共用的介面邏輯移到 `RemoteDesktop.UI.Core`,Windows 的 WPF 版繼續存在

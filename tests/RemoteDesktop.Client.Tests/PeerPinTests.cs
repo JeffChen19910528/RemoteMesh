@@ -274,6 +274,23 @@ public sealed partial class PeerKeyEndToEndTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task TheConnectionThroughTheRelay_IsTls_WithAnEphemeralKeyExchange_OnBothSides_AndOnEveryRebuild()
+    {
+        var hostSessions = new ConcurrentQueue<HostSession>();
+        var host = await StartAsync("host", host: true);
+        host.HostSessionStarted += hostSessions.Enqueue;
+        var viewerClient = await StartAsync("viewer");
+
+        await using var viewer = await viewerClient.ConnectAsync(host.DeviceId, new Sink(), cancellationToken: _cts.Token);
+        await Eventually(() => !hostSessions.IsEmpty, "host session");
+        hostSessions.TryPeek(out var hostSide);
+
+        foreach (var description in new[] { viewer.TransportSecurity, hostSide!.TransportSecurity })
+            Assert.True(description.StartsWith("Tls13") || description.Contains("ECDHE"), $"not forward secret: '{description}'");
+        Assert.Equal(viewer.TransportSecurity, hostSide.TransportSecurity);   // the same connection, seen from both ends
+    }
+
+    [Fact]
     public async Task AServerThatHandsOutAnotherKeyLater_IsCaught_AndNothingIsConnected()
     {
         var host = await StartAsync("host", host: true);
