@@ -68,6 +68,11 @@ public sealed class SignalingClient : ISignalingClient
             if (SessionId.TryParse(sessionId, out var id)) _recoveryTokens[id] = token;
         });
 
+        _connection.On<string, string>("IceCandidateReceived", (sessionId, payload) =>
+        {
+            if (SessionId.TryParse(sessionId, out var id)) TransportSignalReceived?.Invoke(id, payload);
+        });
+
         _connection.On<string, string>("SessionClosed", (sessionId, reason) =>
         {
             if (!SessionId.TryParse(sessionId, out var id)) return;
@@ -264,6 +269,14 @@ public sealed class SignalingClient : ISignalingClient
         return await _connection!.InvokeAsync<AuthResultDto>("RequestRelayToken", sessionId.ToString(), ct);
     }
 
+    public event Action<SessionId, string>? TransportSignalReceived;
+
+    public async Task SendTransportSignalAsync(SessionId sessionId, string payload, CancellationToken ct = default)
+    {
+        EnsureConnected();
+        await _connection!.InvokeAsync("SendIceCandidate", sessionId.ToString(), payload, ct);
+    }
+
     public async Task ReportConnectionModeAsync(SessionId sessionId, ConnectionMode mode, CancellationToken ct = default)
     {
         EnsureConnected();
@@ -274,6 +287,24 @@ public sealed class SignalingClient : ISignalingClient
     {
         EnsureConnected();
         await _connection!.InvokeAsync("CloseSession", sessionId.ToString(), reason, ct);
+    }
+
+    public async Task AddTrustedDeviceAsync(DeviceId trustedDeviceId, string deviceName, Permission defaultPermissions = Permission.ViewOnly, CancellationToken ct = default)
+    {
+        EnsureConnected();
+        await _connection!.InvokeAsync("AddTrustedDevice", trustedDeviceId.ToString(), deviceName, (long)defaultPermissions, ct);
+    }
+
+    public async Task RemoveTrustedDeviceAsync(DeviceId trustedDeviceId, CancellationToken ct = default)
+    {
+        EnsureConnected();
+        await _connection!.InvokeAsync("RemoveTrustedDevice", trustedDeviceId.ToString(), ct);
+    }
+
+    public async Task<IReadOnlyList<TrustedDeviceDto>> GetTrustedDevicesAsync(CancellationToken ct = default)
+    {
+        EnsureConnected();
+        return await _connection!.InvokeAsync<List<TrustedDeviceDto>>("GetTrustedDevices", ct);
     }
 
     public async Task HeartbeatAsync(CancellationToken ct = default)

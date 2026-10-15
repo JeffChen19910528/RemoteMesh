@@ -139,6 +139,43 @@ public sealed class RateControllerTests
 
     [Fact]
     public void TooSmallABudget_IsRefused() => Assert.Throws<ArgumentOutOfRangeException>(() => new RateController(50));
+
+    [Fact]
+    public void AdjustBudgetKbps_ChangesWhatCountsAsOverBudget()
+    {
+        var clock = new ManualClock();
+        var c = new RateController(Budget, 0, clock);
+        Assert.False(Second(c, clock, 300_000)); // 60 % of the original budget: not over, not calm either
+
+        c.AdjustBudgetKbps(2000); // half the budget: the same traffic is now well over it
+        Assert.True(Second(c, clock, 300_000));
+        Assert.Equal(1, c.Index);
+    }
+
+    [Fact]
+    public void AdjustBudgetKbps_CanRestoreHeadroom_SoTheLadderClimbsBackUp()
+    {
+        var clock = new ManualClock();
+        var c = new RateController(Budget, 4, clock);
+        c.AdjustBudgetKbps(500); // well under what the traffic below needs: pushes the ladder down
+        Assert.True(Second(c, clock, 100_000));
+        var loweredIndex = c.Index;
+        Assert.True(loweredIndex > 4);
+
+        c.AdjustBudgetKbps(Budget); // the network recovered: restore the original ceiling
+        Second(c, clock, 100_000); // cooldown window after the change above
+        for (var i = 0; i < 3; i++) Assert.False(Second(c, clock, 100_000));
+        Assert.True(Second(c, clock, 100_000)); // the 4th calm second: steps back up
+        Assert.True(c.Index < loweredIndex);
+    }
+
+    [Fact]
+    public void AdjustBudgetKbps_TooSmall_IsRefused()
+    {
+        var c = new RateController(Budget);
+        Assert.Throws<ArgumentOutOfRangeException>(() => c.AdjustBudgetKbps(50));
+        Assert.Equal(0, c.Index); // unaffected by the refused change
+    }
 }
 
 public sealed class SenderRateTests

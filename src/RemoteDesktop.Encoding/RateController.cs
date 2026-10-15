@@ -34,7 +34,7 @@ public sealed class RateController
     private const int UpgradeAfterCalmWindows = 4;
 
     private readonly TimeProvider _clock;
-    private readonly long _budgetBytesPerSecond;
+    private long _budgetBytesPerSecond;
     private long _windowStart;
     private long _bytes;
     private TimeSpan _busy;
@@ -54,6 +54,17 @@ public sealed class RateController
     public int Index { get; private set; }
     public RateStep Current => Ladder[Index];
 
+    /// <summary>
+    /// Lowers (or restores) the budget this controller enforces, on top of what it already sees in its own
+    /// send timings — for example because an external signal (round-trip time) says the network got worse or
+    /// recovered. Takes effect from the next window; never below the 100 kbit/s floor every controller accepts.
+    /// </summary>
+    public void AdjustBudgetKbps(int budgetKbps)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(budgetKbps, 100);
+        Interlocked.Exchange(ref _budgetBytesPerSecond, budgetKbps * 1000L / 8);
+    }
+
     /// <summary>Records one sent frame. Returns true when the ladder position changed.</summary>
     /// <param name="bytes">Size of the encoded frame.</param>
     /// <param name="sendTime">How long handing it to the connection took (long = the connection is saturated).</param>
@@ -65,6 +76,7 @@ public sealed class RateController
         var elapsed = _clock.GetElapsedTime(_windowStart);
         if (elapsed < Window) return false;
 
+        var budgetBytesPerSecond = Interlocked.Read(ref _budgetBytesPerSecond);
         var seconds = elapsed.TotalSeconds;
         var rate = _bytes / seconds;                 // bytes per second actually produced
         var busy = _busy.TotalSeconds / seconds;     // share of the time spent waiting on the connection
@@ -75,14 +87,14 @@ public sealed class RateController
         // A window right after a change mixes old and new settings: do not judge on it.
         if (_cooldown) { _cooldown = false; return false; }
 
-        var over = rate > _budgetBytesPerSecond * 1.15 || busy > 0.7;
-        var calm = rate < _budgetBytesPerSecond * 0.6 && busy < 0.3;
+        var over = rate > budgetBytesPerSecond * 1.15 || busy > 0.7;
+        var calm = rate < budgetBytesPerSecond * 0.6 && busy < 0.3;
 
         if (over)
         {
             _calm = 0;
             // Far over budget: skip rungs instead of crawling down one per second.
-            var steps = rate > _budgetBytesPerSecond * 2 || busy > 0.95 ? 2 : 1;
+            var steps = rate > budgetBytesPerSecond * 2 || busy > 0.95 ? 2 : 1;
             var target = Math.Min(Ladder.Count - 1, Index + steps);
             if (target == Index) return false;
             Index = target;

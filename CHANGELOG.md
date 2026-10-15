@@ -4,6 +4,20 @@
 
 ## 0.1.0 — 開發中
 
+### 信任設備的客戶端操作、延遲驅動的畫質預算
+- `ISignalingClient`/`SignalingClient` 補上信任設備的三個操作(新增、移除、列出),對齊 hub 端早已有的 `AddTrustedDevice`/`RemoveTrustedDevice`/`GetTrustedDevices`;`RemoteMeshClient.TrustPeerAsync`/`UntrustPeerAsync`/`GetTrustedDevicesAsync` 讓程式可以管理「不用詢問就能連線」的名單(仍受本機封鎖名單否決)
+- 驗證:`TrustedDeviceClientTests`(真實伺服器 + 兩個真實客戶端:信任後免詢問、只給出當時給的權限、列出名稱與權限、移除後恢復詢問、互不影響)
+- `AdaptiveQualityController` 接上真實量測:`HostSession` 把 `KeepAliveService` 量到的真實往返延遲餵給它,延遲變差時降低 `RateController` 的頻寬預算上限(`RateController.AdjustBudgetKbps`),延遲恢復一段時間後還回去。封包遺失與實際頻寬在這個以 TCP/TLS 為底的傳輸層本來就看不到,所以誠實地固定遺失率為 0、以設定的頻寬上限頂代頻寬量測(預算本身偏低時一樣會對應到較低的畫質預設);不是假造一個量不到的訊號
+- 驗證:`RateControllerTests.AdjustBudgetKbps_*`(調降預算改變超支判定、調回後慢慢爬回原本的畫質、太小的預算被拒絕)
+
+### 直連(TCP)、Windows 安裝程式與簽章流程
+- 兩台電腦先嘗試直接連線,不經 Relay:被控端監聽一個 TCP 埠,經信令(既有的 `SendIceCandidate`)提供可到達的位址,控制端逐一連線;失敗、對方沒開、握手失敗或信令遺失都自動回退 Relay。直連上跑的是與 Relay 路徑相同的 TLS(雙向驗證釘選金鑰、前向保密)與端到端 AES-GCM;斷線重連時同樣先試直連
+- `DirectConnector`、`TransportSignals`(信令訊息依 Session 緩衝,先到的訊息不會遺失)、`ClientOptions.DirectConnection/DirectPort/DirectAdvertisedAddresses/DirectConnectTimeout`;Agent 與桌面程式設定 `DirectConnection`(預設開)、`DirectPort`;`SessionBase.ConnectionMode` 顯示 Direct/Relay 並回報伺服器;伺服器允許 `Paused` 狀態的 Session 交換傳輸訊息(重連用)
+- 驗證:`DirectConnectionTests`(真實伺服器 + 兩個真實客戶端:直連且完全不經 Relay、對方不提供直連時回退 Relay、直連斷線後重連)
+- 限制:沒有 NAT 打洞與 TURN,兩邊都在不同 NAT 後面時走 Relay
+- `scripts/build-installer.ps1`:用 WiX 建出使用者層級的 `RemoteMesh-<版本>-x64.msi`(不需系統管理員,開始功能表捷徑,可升級);已實際靜默安裝與解除安裝驗證。`scripts/sign.ps1` 與 `publish-client.ps1 -Thumbprint/-PfxPath`:用 signtool 簽署 exe 與 MSI(需要自己的程式碼簽署憑證)
+- 修正過時的測試:Windows 剪貼簿圖片已支援,`Clipboard_IsOffByDefault_AndImagesAreReportedUnsupported` 還在期待 `NotSupportedException`(而且會改寫執行者的剪貼簿),改為 `..._AndRefusesImagesThatAreTooLarge`
+
 ### 被控端封鎖名單
 - 被控端的人可以封鎖一個裝置:它進行中的連線立刻結束,之後它再怎麼要求(信任裝置、一次性密碼也一樣)都被直接拒絕、不再詢問;名單存在這台電腦(`blocked-peers.json`),重啟後仍在,介面有「封鎖」按鈕(先確認)與「已封鎖的裝置」清單可以解除(WPF 與 Avalonia)
 - `RemoteMeshClient.BlockPeerAsync` / `UnblockPeer` / `BlockedPeers` / `IsBlocked`、`PeerBlockList`

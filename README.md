@@ -6,25 +6,31 @@
 Device ID → Signaling → Authentication → NAT Traversal → Direct → Relay Fallback → Secure Remote Session
 ```
 
-## 目前狀態(請先讀這一節)
+## 功能
 
-**RemoteMesh 已經有可以執行的桌面程式(Windows 的 `RemoteMesh.exe`,以及 Linux、macOS 的版本,見 [docs/PLATFORMS.md](docs/PLATFORMS.md);macOS 版沒有在真實 Mac 上跑過,Linux 純 Wayland 不能被控):開啟後有自己的 ID 與一次性密碼,輸入對方的 ID 就能遠端檢視並控制對方的電腦。但它仍是早期版本,還不能當成正式產品交給一般使用者**(沒有動態補償的影片編碼——整屏連續變動時畫面會變軟、只有約 5 fps;沒有 P2P 直連、沒有簽章與安裝程式,見下表與 [docs/RELEASE_READINESS.md](docs/RELEASE_READINESS.md))。
-完整的出貨檢查表與阻擋項目見 [docs/RELEASE_READINESS.md](docs/RELEASE_READINESS.md)。
+RemoteMesh 已有可以執行的桌面程式(Windows 的 `RemoteMesh.exe`,以及 Linux、macOS 的版本,見 [docs/PLATFORMS.md](docs/PLATFORMS.md)):開啟後有自己的 ID 與一次性密碼,輸入對方的 ID 就能遠端檢視並控制對方的電腦。
 
-| 已完成並有測試 | 尚未完成 |
-|---|---|
-| 設備身分與金鑰;註冊時以私鑰簽章證明身分 | 短 ID(9 位數字)由伺服器配發;設定 PostgreSQL 後號碼歸屬**持久化**,重啟後別人搶不走(沒設定資料庫則仍在記憶體,見 THREAT_MODEL §4) |
-| 信令伺服器:連線請求、使用者核准、OTP、信任設備、權限 | 重啟伺服器時所有連線中斷(狀態在記憶體);客戶端會乾淨地結束連線並自動重新註冊,但**進行中的連線無法保留** |
-| Relay 伺服器與客戶端傳輸(只轉送密文) | Windows、Linux(X11)、macOS 都有螢幕擷取、輸入注入、文字剪貼簿、**圖片剪貼簿**後端(見 [docs/PLATFORMS.md](docs/PLATFORMS.md));**Linux 純 Wayland 工作階段不能被擷取;macOS 後端沒有在真實 Mac 上跑過** |
-| 端到端加密通道(重放防護、金鑰紀元) | **沒有動態補償的影片編碼器**(H.264/VP9/AV1);現有 JPEG 分塊 + 碼率控制:靜止與一般操作很省,整屏連續變動時約 5 fps |
-| 畫面串流管線(擷取→編碼→封包→加密→解碼→繪製) | **P2P 直連未實作**:目前一律走 Relay |
-| 滑鼠、鍵盤、文字與**圖片**剪貼簿、檔案傳輸與權限強制;PostgreSQL 持久化設備、短 ID、信任設備、稽核、Session 與恢復 token(選用);伺服器重啟後進行中的連線自動接回 | 限流與在線狀態仍在記憶體,所以還不能多實例 |
-| `RemoteMeshClient`:同時是被控端與控制端的完整流程(已用真實進程驗證) | |
-| 斷線自動重連:網路中斷、Wi-Fi 切換、Relay 連線被切斷後,同一個連線自動接回(新的金鑰紀元),畫面與操作恢復;心跳、網路變更偵測、Session 恢復 | 對方金鑰有本機釘選與安全碼核對(首次接觸仍是首次使用即信任),裝置可以用雙簽章換新金鑰;連線經過 TLS(臨時金鑰,錄下的流量事後解不開);被控端可以封鎖裝置;沒有帳號層級的設備撤銷 |
-| WPF 桌面程式:ID/密碼、連線、核准對話框(可選權限)、遠端畫面視窗(滑鼠鍵盤剪貼簿檔案)、被控制名單與一鍵中斷 | 沒有簽章、沒有安裝程式;Windows 用 WPF,Linux/macOS 用 Avalonia 版本(同樣的功能與畫面) |
-| 威脅模型與攻擊測試、效能量測、打包與部署腳本 | |
-| **macOS 私鑰加密靜態保護**:私鑰以 AES-256-GCM 加密存檔,加密金鑰存於 macOS Keychain | |
-| **macOS TLS**:修正 .NET 10 macOS 上 EphemeralKeySet 不支援的問題,TLS 連線在 macOS 上現在可正常運作 | |
+- **連線**:9 位數字短 ID(伺服器配發;設定 PostgreSQL 後持久化,重啟不會被搶走)或一次性密碼;被控端核准對話框可逐項選擇權限(預設只有「查看畫面」);信任設備;被控端可封鎖裝置
+- **傳輸**:同網段或可直接到達的位址先走 **P2P 直連**,連不上自動改走 Relay;兩條路徑都包在 TLS(臨時金鑰,前向保密)與端到端 AES-GCM 之內,Relay 只看得到密文
+- **安全**:設備以私鑰簽章證明身分;對方金鑰本機釘選、可用安全碼核對、裝置可用雙簽章換新金鑰;逐訊息的權限強制;限流與稽核;macOS 私鑰以 Keychain 保護
+- **遠端畫面**:擷取→編碼→加密→解碼→繪製的串流管線(JPEG 分塊 + 碼率控制,靜止與一般操作很省頻寬);滑鼠、鍵盤、文字與圖片剪貼簿、檔案傳輸(可續傳、校驗)
+- **穩定**:網路中斷、Wi-Fi 切換、連線被切斷後同一個連線自動接回(新的金鑰紀元);伺服器重啟(設定 PostgreSQL 時)進行中的連線自動接回
+- **平台**:Windows(WPF)、Linux X11 與 macOS(Avalonia),相同功能;無介面的 Agent 供無人值守使用
+- **打包**:伺服器套件、Docker/systemd/Windows 服務部署腳本、Windows MSI 安裝程式與程式碼簽章腳本(見下方「快速開始」)
+- **品質**:1100 多個自動化測試(含真實伺服器 + 真實客戶端的端到端、攻擊情境與效能測試)、威脅模型
+
+## 適用範圍與已知限制
+
+這是早期版本(0.1.0),下列是目前的設計邊界,不是隱藏的缺陷:
+
+- **畫面**:使用 JPEG 分塊編碼,沒有 H.264/VP9/AV1 這類動態補償的影片編碼;整屏連續變動(全螢幕影片)時畫面會變軟、約 5 fps,一般操作則很流暢。
+- **直連範圍**:兩台電腦在同一個區網、其中一台有公開位址、或被控端轉發了 `DirectPort` 時走直連;兩邊都在不同 NAT 後面時沒有打洞或 TURN,自動使用 Relay(功能完整,只是流量經過你的伺服器)。
+- **平台**:Linux 純 Wayland 工作階段不能被擷取或控制(需 X11 / XWayland);macOS 版沒有在真實 Mac 上完整驗證;只擷取主螢幕。
+- **單一伺服器實例**:限流與在線狀態在記憶體,伺服器不能水平擴展(資料庫是持久副本,不是多實例的共同仲裁者)。
+- **簽章**:發行物是否簽章取決於你提供的程式碼簽署憑證;沒有憑證時產生未簽章的套件,Windows SmartScreen 會警告。
+- **安全審查**:只做過內部審查與攻擊測試,沒有第三方稽核。
+
+出貨檢查表與逐項證據見 [docs/RELEASE_READINESS.md](docs/RELEASE_READINESS.md)。
 
 ## 快速開始
 
@@ -45,6 +51,8 @@ curl http://localhost:5222/health
 ./scripts/publish.ps1                         # 伺服器 + Agent:win-x64 / linux-x64 套件到 ./artifacts(含 SHA256SUMS.txt)
 ./scripts/publish-client.ps1                  # 桌面程式:單一 RemoteMesh.exe(約 1.5 MB,需安裝 .NET 10 Desktop Runtime)
 ./scripts/publish-client.ps1 -SelfContained   # 同上但內含執行階段(約 135 MB,任何 Windows 10/11 x64 都能直接執行)
+./scripts/build-installer.ps1 -SelfContained  # 使用者層級的 MSI 安裝程式(不需系統管理員)
+./scripts/build-installer.ps1 -SelfContained -Thumbprint <憑證指紋>   # 同上並用你的程式碼簽署憑證簽章
 ```
 
 ## 怎麼用桌面程式
@@ -114,7 +122,7 @@ src/
 ├── RemoteDesktop.Security       金鑰、簽章、AES-GCM 工作階段加密
 ├── RemoteDesktop.Transport      傳輸抽象;Secure/(端到端加密)Reliability/(心跳、重連)
 ├── RemoteDesktop.Signaling      信令客戶端(SignalR)
-├── RemoteDesktop.Nat            ICE/STUN 候選收集、直連/Relay 選擇
+├── RemoteDesktop.Nat            STUN 候選收集、傳輸模式選擇
 ├── RemoteDesktop.Relay          Relay 客戶端傳輸
 ├── RemoteDesktop.Capture        螢幕擷取介面與測試來源
 ├── RemoteDesktop.Encoding       編碼器/解碼器(Deflate 與差分參考編碼)、適應性畫質
@@ -143,26 +151,8 @@ src/
     ├── RemoteDesktop.Server.Security     設備認證、OTP、Token
     ├── RemoteDesktop.Server.Infrastructure  限流、稽核(記憶體)
     └── RemoteDesktop.Server.Persistence  PostgreSQL:設備、短 ID、信任設備、稽核、Session、token(選用)
-tests/                           12 個測試專案(見 docs/TESTING.md)
+tests/                           20 個測試專案(見 docs/TESTING.md)
 docs/                            文件
 deploy/  scripts/                部署檔與打包腳本
 ```
-
-## 文件
-
-| 文件 | 內容 |
-|---|---|
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | 架構、元件、Session 生命週期、狀態機、擴充點 |
-| [SECURITY.md](docs/SECURITY.md) | 安全模型、防護總覽、安全部署檢查表 |
-| [THREAT_MODEL.md](docs/THREAT_MODEL.md) | 威脅分析、審查發現、殘留風險 |
-| [PROTOCOL.md](docs/PROTOCOL.md) | 信令、Relay、加密通道、各通道的線路格式 |
-| [NETWORKING.md](docs/NETWORKING.md) | 連線模型、NAT/ICE 現況、Relay、連接埠與逾時 |
-| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | 打包、Windows/Linux/Docker 部署、TLS 與反向代理 |
-| [CONFIGURATION.md](docs/CONFIGURATION.md) | 所有設定項目、預設值、驗證規則 |
-| [PERFORMANCE.md](docs/PERFORMANCE.md) | 效能量測、瓶頸與最佳化 |
-| [TESTING.md](docs/TESTING.md) | 測試策略、如何執行、各專案涵蓋範圍 |
-| [PLATFORMS.md](docs/PLATFORMS.md) | Windows / Linux / macOS 支援、需求、限制、如何驗證與打包 |
-| [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | 症狀與處置 |
-| [RELEASE_READINESS.md](docs/RELEASE_READINESS.md) | 出貨檢查表與阻擋項目 |
-| [CHANGELOG.md](CHANGELOG.md) | 各階段變更紀錄 |
 

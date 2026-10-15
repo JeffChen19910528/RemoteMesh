@@ -19,6 +19,7 @@ public sealed class RemoteMeshClient : IAsyncDisposable
     private readonly HostServices _host;
     private readonly IApprovalHandler? _approval;
     private readonly SignalingClient _signaling;
+    private readonly TransportSignals _transportSignals;
     private readonly ConcurrentDictionary<SessionId, SessionBase> _sessions = new();
     private readonly ConcurrentDictionary<SessionId, (DeviceId Id, string? ShortId)> _requesters = new();
     private PeerPinStore _pins = new();
@@ -40,6 +41,7 @@ public sealed class RemoteMeshClient : IAsyncDisposable
         _host = host ?? new HostServices();
         _approval = approval;
         _signaling = new SignalingClient(options.ConfigureHub);
+        _transportSignals = new TransportSignals(_signaling);
     }
 
     public DeviceId DeviceId => _identity?.DeviceId ?? throw new InvalidOperationException("Call StartAsync first.");
@@ -166,7 +168,7 @@ public sealed class RemoteMeshClient : IAsyncDisposable
             var viewer = new ViewerSession(sessionId, endpoint, _options, granted, renderer, CloseOnServerAsync);
             Track(viewer);
             viewer.Start();
-            await _signaling.ReportConnectionModeAsync(sessionId, ConnectionMode.Relay, ct);
+            await _signaling.ReportConnectionModeAsync(sessionId, endpoint.Mode, ct);
             return viewer;
         }
         catch (Microsoft.AspNetCore.SignalR.HubException)
@@ -270,7 +272,7 @@ public sealed class RemoteMeshClient : IAsyncDisposable
     /// </summary>
     private async Task<SessionEndpoint> OpenEndpointAsync(SessionId sessionId, string relayToken, bool initiator, CancellationToken ct)
     {
-        try { return await SessionEndpoint.OpenAsync(_options, _signaling, _keys!, DeviceId, _pins, sessionId, relayToken, initiator, ct); }
+        try { return await SessionEndpoint.OpenAsync(_options, _signaling, _keys!, DeviceId, _pins, sessionId, relayToken, initiator, ct, _transportSignals); }
         catch (PeerKeyChangedException)
         {
             try { await _signaling.CloseSessionAsync(sessionId, "security key changed", CancellationToken.None); } catch (Exception) { }
@@ -304,6 +306,32 @@ public sealed class RemoteMeshClient : IAsyncDisposable
     public bool UnblockPeer(DeviceId peer) => _blocked.Unblock(peer);
 
     public bool IsBlocked(DeviceId peer) => _blocked.IsBlocked(peer);
+
+    // ── Devices this computer trusts without asking ──────────────────────
+
+    /// <summary>
+    /// Lets a device connect without an approval prompt from now on, with at most the rights given here (least
+    /// privilege). Blocking still overrules this: a device can be both trusted and blocked, and blocked wins.
+    /// </summary>
+    public Task TrustPeerAsync(DeviceId peer, string name, Permission defaultPermissions = Permission.ViewOnly, CancellationToken ct = default)
+    {
+        EnsureStarted();
+        return _signaling.AddTrustedDeviceAsync(peer, name, defaultPermissions, ct);
+    }
+
+    /// <summary>The device goes back to asking for approval like anyone else.</summary>
+    public Task UntrustPeerAsync(DeviceId peer, CancellationToken ct = default)
+    {
+        EnsureStarted();
+        return _signaling.RemoveTrustedDeviceAsync(peer, ct);
+    }
+
+    /// <summary>Devices that may connect to this computer without an approval prompt.</summary>
+    public Task<IReadOnlyList<TrustedDeviceDto>> GetTrustedDevicesAsync(CancellationToken ct = default)
+    {
+        EnsureStarted();
+        return _signaling.GetTrustedDevicesAsync(ct);
+    }
 
     // ── Changing this device's key ───────────────────────────────────────
 
@@ -522,6 +550,7 @@ public sealed class RemoteMeshClient : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         _cts.Cancel();
+        _transportSignals.Detach();
         foreach (var s in _sessions.Values.ToArray()) await s.DisposeAsync();
         await _signaling.DisposeAsync();
         try { await Task.WhenAll(_background).WaitAsync(TimeSpan.FromSeconds(5)); } catch (Exception) { }

@@ -59,8 +59,23 @@ public interface ISignalingClient : IAsyncDisposable
     /// <summary>A fresh single-use relay token (for example after a relay reconnect).</summary>
     Task<AuthResultDto> RequestRelayTokenAsync(SessionId sessionId, CancellationToken ct = default);
 
+    /// <summary>Sends a transport negotiation message (direct-connection addresses) to the other participant of the session.</summary>
+    Task SendTransportSignalAsync(SessionId sessionId, string payload, CancellationToken ct = default);
+
+    /// <summary>A transport negotiation message from the other participant of a session.</summary>
+    event Action<SessionId, string>? TransportSignalReceived;
+
     Task ReportConnectionModeAsync(SessionId sessionId, ConnectionMode mode, CancellationToken ct = default);
     Task CloseSessionAsync(SessionId sessionId, string? reason = null, CancellationToken ct = default);
+
+    /// <summary>Lets a device connect without an approval prompt from now on, with at most the rights given here.</summary>
+    Task AddTrustedDeviceAsync(DeviceId trustedDeviceId, string deviceName, Permission defaultPermissions = Permission.ViewOnly, CancellationToken ct = default);
+
+    /// <summary>The device goes back to asking for approval like anyone else.</summary>
+    Task RemoveTrustedDeviceAsync(DeviceId trustedDeviceId, CancellationToken ct = default);
+
+    /// <summary>Devices this one lets connect without an approval prompt.</summary>
+    Task<IReadOnlyList<TrustedDeviceDto>> GetTrustedDevicesAsync(CancellationToken ct = default);
 
     /// <summary>The requester was approved: carries its relay token and the granted permissions.</summary>
     event Action<AuthResultDto>? Approved;

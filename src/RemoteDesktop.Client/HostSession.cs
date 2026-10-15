@@ -116,6 +116,7 @@ public sealed class HostSession : SessionBase
                 VideoCodec = encoder.Codec;
                 // Only the lossy codec can trade picture quality for bandwidth, so only it gets a budget.
                 var rate = lossy ? new RateController(_budgetKbps) : null;
+                if (rate is not null) WatchLatency(rate);
                 var sender = new DesktopStreamSender(createCapture(), encoder, Endpoint[ChannelType.Desktop], rate);
                 _sender = sender;
                 await sender.RunAsync(ct);
@@ -123,5 +124,22 @@ public sealed class HostSession : SessionBase
         }
 
         StartKeepAliveAndWatchdog();
+    }
+
+    /// <summary>
+    /// Lowers the lossy video's bandwidth budget ahead of the rate controller's own send-timing signal when round
+    /// trips get slow, and restores it once they are good again for a while. Round-trip time is the one network
+    /// quality signal available end to end over this transport (packet loss and raw bandwidth are not observable at
+    /// this layer), so that is the only axis of <see cref="NetworkStats"/> this feeds with a real measurement; the
+    /// budget ceiling itself stands in for "bandwidth" so a low configured budget still picks a matching preset.
+    /// </summary>
+    private void WatchLatency(RateController rate)
+    {
+        var quality = new AdaptiveQualityController();
+        KeepAlive.RttMeasured += rtt =>
+        {
+            if (quality.Update(new NetworkStats(rtt.TotalMilliseconds, LossPercent: 0, BandwidthKbps: _budgetKbps)))
+                rate.AdjustBudgetKbps(Math.Min(_budgetKbps, AdaptiveQualityController.ToQuality(quality.Preset).BitrateKbps));
+        };
     }
 }
