@@ -22,6 +22,9 @@ public abstract class SessionBase : IAsyncDisposable
     /// <summary>The TLS version and cipher suite of the connection through the relay, for example <c>Tls13 TLS_AES_256_GCM_SHA384</c>.</summary>
     public string TransportSecurity => Endpoint.TransportSecurity;
 
+    /// <summary>Direct (computer to computer) or Relay (through the server).</summary>
+    public ConnectionMode ConnectionMode => Endpoint.Mode;
+
     /// <summary>The device on the other end.</summary>
     public DeviceId PeerDeviceId => Endpoint.PeerDeviceId;
 

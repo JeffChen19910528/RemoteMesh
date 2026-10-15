@@ -44,6 +44,25 @@ public sealed class ClientOptions
     /// </summary>
     public TimeSpan ReconnectGrace { get; init; } = TimeSpan.FromSeconds(2);
 
+    /// <summary>
+    /// Try a direct connection between the two computers before using the relay. It works when one side can be reached
+    /// at one of its addresses (same network, a public address, a forwarded port); otherwise the session uses the relay.
+    /// The direct connection carries the same TLS and end-to-end encryption as the relay path.
+    /// </summary>
+    public bool DirectConnection { get; init; }
+
+    /// <summary>Fixed TCP port the controlled computer listens on for direct connections. 0 = any free port.</summary>
+    public int DirectPort { get; init; }
+
+    /// <summary>Extra addresses (host:port) to offer for direct connections, for example a forwarded public address.</summary>
+    public IReadOnlyList<string> DirectAdvertisedAddresses { get; init; } = [];
+
+    /// <summary>Also offer loopback addresses (two programs on one computer). Tests only.</summary>
+    public bool DirectIncludeLoopback { get; init; }
+
+    /// <summary>How long the side that asked for the session tries the offered addresses before it falls back to the relay.</summary>
+    public TimeSpan DirectConnectTimeout { get; init; } = TimeSpan.FromSeconds(2);
+
     /// <summary>Hook for the signaling connection (proxy, custom handler, transport). Tests use it.</summary>
     public Action<HttpConnectionOptions>? ConfigureHub { get; init; }
 

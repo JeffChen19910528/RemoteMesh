@@ -25,7 +25,20 @@
 
 輸出在 `artifacts/`:每個平台一個壓縮檔(`server/`、`agent/`、`deploy/`、`docs/`、`VERSION`),加上 `SHA256SUMS.txt`。版本號來自 `Directory.Build.props`。腳本會先建置並執行測試,失敗就不產生套件。
 
-分發時請一併提供 `SHA256SUMS.txt`,並在部署前核對。**套件目前沒有簽章**(程式碼簽章、套件簽章尚未做)。
+分發時請一併提供 `SHA256SUMS.txt`,並在部署前核對。
+
+### 桌面程式安裝程式與程式碼簽章(Windows)
+
+```powershell
+./scripts/build-installer.ps1 -SelfContained                       # artifacts/RemoteMesh-<版本>-x64.msi(未簽章)
+./scripts/build-installer.ps1 -SelfContained -Thumbprint <指紋>    # 憑證在目前使用者的憑證存放區(或硬體權杖)
+./scripts/build-installer.ps1 -SelfContained -PfxPath cert.pfx     # PFX;密碼放環境變數 REMOTEMESH_PFX_PASSWORD
+./scripts/sign.ps1 -Path <檔案> -Thumbprint <指紋>                 # 只簽章(需要 Windows SDK 的 signtool)
+```
+
+`build-installer.ps1` 用 WiX(`.config/dotnet-tools.json` 鎖定版本,自動還原)把 `RemoteMesh.exe` 包成**使用者層級**的 MSI:不需要系統管理員權限,裝在 `%LocalAppData%\Programs\RemoteMesh`,建立開始功能表捷徑,支援升級與解除安裝。已實際建置並在本機驗證靜默安裝(檔案與捷徑就位)與解除安裝(乾淨移除)。
+
+簽章需要你自己向憑證機構取得的程式碼簽署憑證(憑證不在本專案內);給了憑證,腳本會簽署 exe 與 MSI(SHA-256、加時間戳記)並驗證簽章。沒給憑證就產生未簽章的套件,Windows SmartScreen 第一次執行會警告。伺服器套件(`publish.ps1`)與 Linux/macOS 套件目前不簽章。
 
 ## 4. 安裝
 
@@ -71,7 +84,7 @@ docker compose -f deploy/docker-compose.yml up --build
 | `install-server.sh` | 只做了語法檢查與 `--dry-run`;**尚未在 Linux 上實測**;systemd 單元也**未在真實的 systemd 上驗證** |
 | `Dockerfile`、`docker-compose.yml` | **尚未建置或執行**(開發機的 Docker daemon 未啟動)。基底映像標籤、`$APP_UID` 與唯讀檔案系統設定請在你的環境驗證 |
 | 自含式發布(`-SelfContained`) | 尚未執行(需要下載執行階段套件) |
-| 套件簽章 | 未做 |
+| 桌面程式 MSI 安裝程式 | **已實際建置並驗證**靜默安裝與解除安裝;簽章流程需要你的憑證,腳本已備妥但未用真實憑證執行 |
 
 **第一次在目標環境部署前,請先在測試環境走完整個流程。**
 

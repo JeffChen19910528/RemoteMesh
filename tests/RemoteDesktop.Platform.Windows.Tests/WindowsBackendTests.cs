@@ -148,12 +148,12 @@ public sealed class WindowsBackendTests
     }
 
     [Fact]
-    public async Task Clipboard_IsOffByDefault_AndImagesAreReportedUnsupported()
+    public async Task Clipboard_IsOffByDefault_AndRefusesImagesThatAreTooLarge()
     {
         if (!OperatingSystem.IsWindows()) return;
         var clipboard = new WindowsClipboardManager();
         Assert.Equal(ClipboardPolicy.Disabled, clipboard.Policy);
-        Assert.Null(await clipboard.GetImageAsync());
-        await Assert.ThrowsAsync<NotSupportedException>(() => clipboard.SetImageAsync([1, 2, 3]));
+        // Checked before the clipboard is touched, so this never changes what the person has copied.
+        await Assert.ThrowsAsync<IOException>(() => clipboard.SetImageAsync(new byte[ClipboardLimits.MaxImageBytes + 1]));
     }
 }

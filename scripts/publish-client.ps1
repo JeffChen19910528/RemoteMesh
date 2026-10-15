@@ -8,7 +8,8 @@
     Default: framework-dependent (small; the computer needs the .NET 10 Desktop Runtime).
     -SelfContained bundles the runtime so the exe runs on any Windows 10/11 x64 machine (much larger).
 
-    The package is NOT code-signed: Windows SmartScreen will warn on first run until it is signed.
+    The exe is signed when -Thumbprint (certificate store) or -PfxPath is given (see scripts/sign.ps1); without a
+    certificate it is not, and Windows SmartScreen warns on first run.
 
 .EXAMPLE
     ./scripts/publish-client.ps1
@@ -18,6 +19,8 @@
 param(
     [switch] $SelfContained,
     [switch] $SkipTests,
+    [string] $Thumbprint,
+    [string] $PfxPath,
     [string] $Output = (Join-Path (Join-Path $PSScriptRoot '..') 'artifacts')
 )
 
@@ -63,6 +66,13 @@ Get-ChildItem $stage -Filter *.pdb -ErrorAction SilentlyContinue | Remove-Item -
 
 $exe = Join-Path $stage 'RemoteMesh.exe'
 if (-not (Test-Path $exe)) { throw 'RemoteMesh.exe was not produced.' }
+
+if ($Thumbprint -or $PfxPath) {
+    $signArgs = @{ Path = @($exe) }
+    if ($Thumbprint) { $signArgs.Thumbprint = $Thumbprint }
+    if ($PfxPath) { $signArgs.PfxPath = $PfxPath }
+    & (Join-Path $PSScriptRoot 'sign.ps1') @signArgs
+}
 
 Set-Content -Path (Join-Path $stage 'VERSION') -Value "$version ($flavor)" -Encoding ascii
 $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()

@@ -24,14 +24,16 @@ internal sealed class SessionEndpoint : IAsyncDisposable
     private readonly byte[] _peerKey;
     private readonly PeerPinStore _pins;
     private readonly bool _initiator;
+    private readonly TransportSignals? _signals;
     private readonly Dictionary<ChannelType, ResilientChannel> _channels;
     private SecureTransport? _transport;
     private int _epoch;
     private int _disposed;
 
     private SessionEndpoint(ClientOptions options, ISignalingClient signaling, DeviceKeyPair myKeys, DeviceId me,
-        SessionId sessionId, DeviceId peer, byte[] peerKey, PeerPinStore pins, bool initiator)
+        SessionId sessionId, DeviceId peer, byte[] peerKey, PeerPinStore pins, bool initiator, TransportSignals? signals)
     {
+        _signals = signals;
         _options = options;
         _signaling = signaling;
         _myKeys = myKeys;
@@ -47,6 +49,9 @@ internal sealed class SessionEndpoint : IAsyncDisposable
     }
 
     public SessionId SessionId { get; }
+
+    /// <summary>How the two computers are connected right now: straight to each other, or through the relay.</summary>
+    public ConnectionMode Mode { get; private set; } = ConnectionMode.Relay;
 
     /// <summary>The TLS version and cipher suite protecting the connection through the relay (empty before it is up).</summary>
     public string TransportSecurity { get; private set; } = "";
@@ -78,7 +83,7 @@ internal sealed class SessionEndpoint : IAsyncDisposable
     /// <param name="initiator">True for the side that requested the session (it and the peer must differ).</param>
     public static async Task<SessionEndpoint> OpenAsync(
         ClientOptions options, ISignalingClient signaling, DeviceKeyPair myKeys, DeviceId me, PeerPinStore pins,
-        SessionId sessionId, string relayToken, bool initiator, CancellationToken ct)
+        SessionId sessionId, string relayToken, bool initiator, CancellationToken ct, TransportSignals? signals = null)
     {
         // The peer's public key comes from the server, which pinned it when the peer first registered. This machine
         // pins it too, on first sight: a key that differs from the pinned one stops the session before any key
@@ -96,7 +101,7 @@ internal sealed class SessionEndpoint : IAsyncDisposable
             rotated = true;
         }
 
-        var endpoint = new SessionEndpoint(options, signaling, myKeys, me, sessionId, peer, peerKey, pins, initiator)
+        var endpoint = new SessionEndpoint(options, signaling, myKeys, me, sessionId, peer, peerKey, pins, initiator, signals)
         {
             PeerIsNew = pinned == PeerPinResult.NewPeer,
             PeerKeyRotated = rotated
@@ -135,18 +140,31 @@ internal sealed class SessionEndpoint : IAsyncDisposable
         var crypto = new AesGcmSessionCrypto();
         await crypto.DeriveSessionKeyAsync(SessionId, _myKeys.PrivateKey, _peerKey, SessionKeyContext.ForEpoch(epoch), ct);
 
-        var raw = await ConnectRelayAsync(_options, SessionId, _me, relayToken, ct);
-        // TLS between the two devices, through the relay: both prove their (pinned) device key, and the ephemeral key
-        // exchange keeps recorded traffic unreadable even if a device key leaks later. The encrypted channels below
-        // stay as they are, so a flaw in either layer does not expose the content.
-        WebSocket socket;
-        try { socket = await RelayTls.AuthenticateAsync(raw, _initiator, _myKeys, _peerKey, ct); }
-        catch
+        // TLS between the two devices: both prove their (pinned) device key, and the ephemeral key exchange keeps
+        // recorded traffic unreadable even if a device key leaks later. The encrypted channels below stay as they
+        // are, so a flaw in either layer does not expose the content. The same handshake protects the direct path and
+        // the relay path.
+        Task<WebSocket> Authenticate(WebSocket raw) => RelayTls.AuthenticateAsync(raw, _initiator, _myKeys, _peerKey, ct);
+
+        WebSocket? socket = null;
+        var mode = ConnectionMode.Relay;
+        if (_options.DirectConnection && _signals is not null)
         {
-            try { raw.Abort(); raw.Dispose(); } catch (Exception) { }
-            throw;
+            socket = await new DirectConnector(_options, _signals, SessionId, _initiator).TryAsync(epoch, Authenticate, ct);
+            if (socket is not null) mode = ConnectionMode.Direct;
+        }
+        if (socket is null)
+        {
+            var raw = await ConnectRelayAsync(_options, SessionId, _me, relayToken, ct);
+            try { socket = await Authenticate(raw); }
+            catch
+            {
+                try { raw.Abort(); raw.Dispose(); } catch (Exception) { }
+                throw;
+            }
         }
         TransportSecurity = RelayTls.Describe(socket) ?? "";
+        Mode = mode;
         var transport = new SecureTransport(new RelayTransport(socket, SessionId), crypto, _initiator);
         try
         {
@@ -187,9 +205,13 @@ internal sealed class SessionEndpoint : IAsyncDisposable
         }
     }
 
+    /// <summary>Kills the current connection as a network failure would (tests).</summary>
+    internal void DropConnectionForTest() => _ = _transport?.DisposeAsync().AsTask();
+
     public async ValueTask DisposeAsync()
     {
         Volatile.Write(ref _disposed, 1);
+        _signals?.Forget(SessionId);
         foreach (var c in _channels.Values) await c.DisposeAsync();
         var transport = Interlocked.Exchange(ref _transport, null);
         if (transport is not null) { try { await transport.DisposeAsync(); } catch (Exception) { } }

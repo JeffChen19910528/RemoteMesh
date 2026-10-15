@@ -24,6 +24,12 @@ public sealed class AgentOptions
     /// <summary>The most bandwidth the screen picture may use while somebody watches (kilobits per second, 500-100000).</summary>
     public int VideoBudgetKbps { get; set; } = 6000;
 
+    /// <summary>Try a direct connection to the viewer before using the relay (falls back to the relay by itself).</summary>
+    public bool DirectConnection { get; set; } = true;
+
+    /// <summary>TCP port to listen on for direct connections; 0 = any free port. Set it (and forward it) to be reachable from outside the network.</summary>
+    public int DirectPort { get; set; }
+
     /// <summary>
     /// Devices that may connect without anyone at this machine approving. Everyone else is declined — an
     /// unattended agent has nobody to ask. Each entry lists exactly the rights it gets.
@@ -41,6 +47,7 @@ public sealed class AgentOptions
 
         if (string.IsNullOrWhiteSpace(DeviceName) || DeviceName.Length > 64) problems.Add("Agent:DeviceName must be 1-64 characters.");
         if (FileRoot is { Length: > 0 } && !Path.IsPathRooted(FileRoot)) problems.Add("Agent:FileRoot must be an absolute path.");
+        if (DirectPort is < 0 or > 65535) problems.Add("Agent:DirectPort must be between 0 and 65535.");
         if (VideoBudgetKbps is < 500 or > 100_000) problems.Add("Agent:VideoBudgetKbps must be between 500 and 100000.");
 
         foreach (var peer in TrustedPeers)

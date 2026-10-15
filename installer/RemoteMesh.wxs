@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Per-user installer for the RemoteMesh desktop program (no administrator rights needed).
+  Build with scripts/build-installer.ps1. Variables: Version, SourceDir (folder holding RemoteMesh.exe).
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="RemoteMesh" Manufacturer="RemoteMesh" Version="$(Version)"
+           UpgradeCode="6F1D2C84-3B7A-4E59-9A0C-5D8E2B71C4A3" Scope="perUser">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of RemoteMesh is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="ProgramsFolder" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="RemoteMesh" />
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="RemoteMesh" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="StartMenuShortcut" />
+    </Feature>
+
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Component Id="MainExe" Guid="*">
+        <File Id="RemoteMeshExe" Source="$(SourceDir)\RemoteMesh.exe" KeyPath="yes" />
+        <RemoveFolder Id="RemoveInstallFolder" On="uninstall" />
+        <RegistryValue Root="HKCU" Key="Software\RemoteMesh" Name="Installed" Type="integer" Value="1" />
+      </Component>
+    </ComponentGroup>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Component Id="StartMenuShortcut" Guid="*">
+        <Shortcut Id="StartMenuLink" Name="RemoteMesh" Target="[INSTALLFOLDER]RemoteMesh.exe"
+                  WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKCU" Key="Software\RemoteMesh" Name="Shortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+  </Package>
+</Wix>

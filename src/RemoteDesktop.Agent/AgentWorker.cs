@@ -30,7 +30,9 @@ public sealed class AgentWorker(IOptions<AgentOptions> options, ILogger<AgentWor
                 DeviceName = settings.DeviceName,
                 DataDirectory = string.IsNullOrWhiteSpace(settings.DataDirectory) ? null : settings.DataDirectory,
                 JpegCodec = PlatformHost.CreateJpegCodec(),
-                VideoBudgetKbps = settings.VideoBudgetKbps
+                VideoBudgetKbps = settings.VideoBudgetKbps,
+                DirectConnection = settings.DirectConnection,
+                DirectPort = settings.DirectPort
             },
             BuildHostServices(settings),
             new ConfigApprovalHandler(settings.TrustedPeers));

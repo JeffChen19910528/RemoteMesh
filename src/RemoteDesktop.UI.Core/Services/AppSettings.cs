@@ -21,6 +21,12 @@ public sealed class AppSettings
     /// </summary>
     public int VideoBudgetKbps { get; set; } = 6000;
 
+    /// <summary>Try a direct connection to the other computer before using the relay (it falls back to the relay by itself).</summary>
+    public bool DirectConnection { get; set; } = true;
+
+    /// <summary>TCP port to listen on for direct connections; 0 = any free port. Edit in settings.json.</summary>
+    public int DirectPort { get; set; }
+
     /// <summary>The problem with these settings, or null when they are usable.</summary>
     public string? Validate()
     {
@@ -35,6 +41,8 @@ public sealed class AppSettings
             return "檔案資料夾必須是完整路徑";
         if (VideoBudgetKbps is < 500 or > 100_000)
             return "畫面頻寬上限必須介於 500 到 100000 kbps";
+        if (DirectPort is < 0 or > 65535)
+            return "直連連接埠必須介於 0 到 65535";
         return null;
     }
 

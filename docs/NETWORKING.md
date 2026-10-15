@@ -8,17 +8,18 @@ Device ID → 信令 → 認證 → NAT 穿透 → 直連 → Relay 備援 → �
 
 使用者不選擇連線方式:`TransportManager` 先嘗試直連(ICE),失敗、逾時或直連傳輸無法建立,都自動改走 Relay。
 
-**現況(請務必了解)**
+**現況**
 
 | 項目 | 狀態 |
 |---|---|
-| 候選位址收集(host / server-reflexive,STUN,SIPSorcery) | 已實作;**需要連外的 STUN 伺服器,單元測試不涵蓋**(測試使用模擬) |
-| ICE 連線檢查、SDP 交換 | **未實作**(`SipSorceryNatTraversal.TryEstablishDirectAsync` 永遠回傳 `false`) |
-| P2P 直連傳輸 | **未實作**(沒有 `IDirectTransportFactory` 的實作) |
-| TURN | **未實作**(也沒有設定項目);Relay 是應用層的 WebSocket 中繼,不是 TURN |
-| Relay 備援 | 已實作並有端到端測試 |
+| 直連(TCP) | **已實作**:被控端監聽一個 TCP 埠,經信令把可到達的位址(區網位址、`DirectAdvertisedAddresses`)告訴控制端;控制端逐一連線,成功就用直連。直連之上跑的是與 Relay 路徑完全相同的 TLS(雙向驗證釘選的裝置金鑰、前向保密)與端到端 AES-GCM,所以埠被陌生人連上也拿不到任何東西 |
+| 回退 Relay | 已實作:對方沒開直連、位址連不上、握手失敗、信令訊息遺失,都改走 Relay,每次嘗試最多多花幾秒;斷線重連時同樣先試直連 |
+| 候選位址收集(host / server-reflexive,STUN,SIPSorcery) | 已實作(`SipSorceryNatTraversal`),但目前直連路徑不依賴它 |
+| NAT 打洞 / TURN | 不提供:兩台電腦都在不同 NAT 後面時,直連連不上,自動使用 Relay。Relay 是應用層的 WebSocket 中繼,不是 TURN |
 
-結果:**目前所有 Session 都走 Relay**。`TransportManager` 在沒有直連傳輸工廠時,即使 ICE 回報成功也一律使用 Relay,絕不回傳一個不會送資料的傳輸(有測試涵蓋)。直連完成前,所有流量都經過你的 Relay 伺服器,頻寬與容量規劃請以此為準。
+什麼時候會是直連:兩台電腦在同一個區網、其中一台有公開位址、或被控端把 `DirectPort` 轉發出來並用 `DirectAdvertisedAddresses` 宣告。其他情況走 Relay(頻寬與容量規劃請以此為準)。連線模式(`Direct` / `Relay`)會在 `ViewerSession.ConnectionMode` / `HostSession.ConnectionMode` 顯示,並回報給伺服器。
+
+信令:直連位址交換使用既有的 `SendIceCandidate` hub 方法(一則 JSON:`offer` 帶位址、`relay` 表示改走 Relay,都標明金鑰紀元);伺服器只轉送,每個 Session 每分鐘最多 200 則。
 
 ## 2. NAT 驗收測試
 

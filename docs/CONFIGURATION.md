@@ -104,11 +104,13 @@ TimeSpan 以 `d.hh:mm:ss` 表示(`"00:02:00"` = 2 分鐘)。範例見 `deploy/ap
 | `DataDirectory` | 使用者預設位置 | 設備身分與私鑰的位置 |
 | `FileRoot` | 空(關閉) | 遠端檔案傳輸唯一可觸及的資料夾,必須是絕對路徑 |
 | `AllowClipboard` | `false` | 允許檢視端使用本機剪貼簿(仍受每個 Session 授予的權限限制) |
+| `DirectConnection` | `true` | 連線前先嘗試與對方電腦直連,失敗自動改走 Relay(見 NETWORKING.md) |
+| `DirectPort` | `0` | 直連時監聽的 TCP 連接埠;0 = 隨機。要讓外網直接連進來時固定一個埠並轉發 |
 | `TrustedPeers` | 空 | 不經人工核准即可連線的設備清單,每筆列出 `DeviceId` 與 `Permissions`(例如 `ViewOnly`、`ViewScreen, ControlMouse`)。**不在清單內的一律拒絕**;不可包含重啟/關機 |
 
 Agent 必須在**登入使用者的工作階段**中執行(例如開機自動啟動的一般程式):Windows 服務跑在 session 0,看不到使用者的螢幕。
 
-規劃中的 `performance.*`、`features.*` 等設定尚未提供。
+桌面程式的 `settings.json` 有對應的 `DirectConnection`、`DirectPort`。程式碼層級另有 `ClientOptions.DirectAdvertisedAddresses`(額外對外宣告的 `host:port`,例如轉發後的公開位址)與 `DirectConnectTimeout`(預設 2 秒)。
 
 | 選項類別 | 重點預設 |
 |---|---|

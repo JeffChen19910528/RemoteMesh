@@ -226,7 +226,9 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
                     DeviceName = _settings.DeviceName,
                     DataDirectory = _store.DataDirectory,
                     JpegCodec = PlatformHost.CreateJpegCodec(),
-                    VideoBudgetKbps = _settings.VideoBudgetKbps
+                    VideoBudgetKbps = _settings.VideoBudgetKbps,
+                    DirectConnection = _settings.DirectConnection,
+                    DirectPort = _settings.DirectPort
                 },
                 _hostServices(_settings),
                 new UiApprovalHandler(_shell));

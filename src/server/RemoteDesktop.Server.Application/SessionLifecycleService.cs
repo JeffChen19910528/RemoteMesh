@@ -34,7 +34,8 @@ public sealed class SessionLifecycleService(
 
         var session = await support.GetParticipantSessionAsync(sessionId, senderId);
 
-        if (session.State != SessionState.EstablishingTransport && session.State != SessionState.Connected)
+        // Paused: a dropped connection being rebuilt negotiates its transport again.
+        if (session.State is not (SessionState.EstablishingTransport or SessionState.Connected or SessionState.Paused))
             throw new SignalingException("ICE candidates can only be exchanged while establishing transport.");
         if (!rateLimiter.TryConsume($"ice:{sessionId}:{senderId}", 200, TimeSpan.FromMinutes(1)))
             throw new SignalingException("Too many requests.");
